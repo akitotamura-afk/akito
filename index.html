@@ -131,11 +131,39 @@ table.media .num{text-align:right;font-variant-numeric:tabular-nums}
 
 <script>
 // ===== CONFIG =====
-const FIELDS = ['cost','scout','reply','apply','interview','offer','hire','deal'];
-const FIELD_NAMES = ['掲載費用','スカウト送信数','スカウト返信数','応募数','面接実施数','内定数','入社数','案件成約数'];
-const FIELD_UNITS = ['円','件','件','件','件','件','件','件'];
+const FIELDS = ['cost','apply','valid','interview','sales_start','hire','deal'];
+const FIELD_NAMES = ['掲載費用','応募数','有効応募','面接実施数','営業開始数','入社数','成約数'];
+const FIELD_UNITS = ['円','件','件','件','件','件','件'];
 const PALETTE = ['#3b82f6','#f59e0b','#22c55e','#ec4899','#14b8a6','#f97316','#8b5cf6','#06b6d4','#e11d48','#84cc16','#6366f1','#fb923c'];
-const STAGE_COLORS = ['#38bdf8','#818cf8','#a78bfa','#fbbf24','#f97316','#34d399','#22c55e'];
+const STAGE_COLORS = ['#38bdf8','#818cf8','#a78bfa','#fbbf24','#fb923c','#34d399','#22c55e'];
+
+// Preloaded real data from 応募スコア12月～2月
+const PRELOAD_DATA = {
+  '2025-12': {
+    month:'2025-12',
+    en:{cost:0,apply:50,valid:20,interview:10,sales_start:4,hire:1,deal:1},
+    dd:{cost:0,apply:18,valid:8,interview:0,sales_start:0,hire:0,deal:2},
+    mn:{cost:0,apply:50,valid:20,interview:9,sales_start:4,hire:0,deal:3},
+    tp:{cost:0,apply:19,valid:4,interview:2,sales_start:2,hire:0,deal:1},
+    aw:{cost:0,apply:0,valid:0,interview:0,sales_start:0,hire:0,deal:0}
+  },
+  '2026-01': {
+    month:'2026-01',
+    en:{cost:0,apply:41,valid:12,interview:5,sales_start:5,hire:0,deal:1},
+    dd:{cost:0,apply:21,valid:9,interview:6,sales_start:6,hire:1,deal:1},
+    mn:{cost:0,apply:41,valid:12,interview:7,sales_start:5,hire:0,deal:2},
+    tp:{cost:0,apply:37,valid:4,interview:2,sales_start:2,hire:0,deal:0},
+    aw:{cost:0,apply:19,valid:4,interview:4,sales_start:3,hire:0,deal:0}
+  },
+  '2026-02': {
+    month:'2026-02',
+    en:{cost:0,apply:40,valid:16,interview:8,sales_start:8,hire:0,deal:0},
+    dd:{cost:0,apply:12,valid:4,interview:4,sales_start:3,hire:0,deal:1},
+    mn:{cost:0,apply:40,valid:16,interview:8,sales_start:8,hire:0,deal:0},
+    tp:{cost:0,apply:57,valid:14,interview:10,sales_start:6,hire:0,deal:0},
+    aw:{cost:0,apply:67,valid:10,interview:7,sales_start:2,hire:0,deal:2}
+  }
+};
 
 // Default media
 const DEFAULT_MEDIA = [
@@ -147,7 +175,7 @@ const DEFAULT_MEDIA = [
 ];
 
 let mediaList = JSON.parse(localStorage.getItem('ses_media_list')||'null') || DEFAULT_MEDIA.map((m,i)=>({...m,color:PALETTE[i]}));
-let allData = JSON.parse(localStorage.getItem('ses_media_data2')||'{}');
+let allData = JSON.parse(localStorage.getItem('ses_media_data2')||'null') || {...PRELOAD_DATA};
 let currentData = null;
 
 function saveMediaList(){ localStorage.setItem('ses_media_list', JSON.stringify(mediaList)); }
@@ -197,7 +225,7 @@ function renderMediaCard(media){
     <button class="remove-btn" title="この媒体を削除" onclick="removeMedia('${media.id}')">×</button>
     <h3><span class="legend-dot" style="background:${media.color}"></span> ${media.name}</h3>`;
   FIELDS.forEach((f,i)=>{
-    const def = f==='cost'? 0 : 0;
+    const def = 0;
     html+=`<div class="input-row"><label>${FIELD_NAMES[i]}</label><input type="number" id="${media.id}_${f}" value="${def}" min="0" step="${f==='cost'?10000:1}"><span class="unit">${FIELD_UNITS[i]}</span></div>`;
   });
   return html + `</div>`;
@@ -301,29 +329,28 @@ function renderOverview(){
   FIELDS.forEach(f => total[f] = 0);
   mediaList.forEach(m => FIELDS.forEach(f => total[f] += d[m.id]?.[f]||0));
 
-  const cpaH = total.hire ? Math.round(total.cost/total.hire) : null;
   const cpaD = total.deal ? Math.round(total.cost/total.deal) : null;
 
   let html = `<div class="kpi-row fade-in">
-    <div class="kpi"><div class="kpi-val" style="color:#38bdf8">${total.scout}</div><div class="kpi-label">スカウト送信</div></div>
-    <div class="kpi"><div class="kpi-val" style="color:#a78bfa">${total.apply}</div><div class="kpi-label">応募数</div></div>
-    <div class="kpi"><div class="kpi-val" style="color:#fbbf24">${total.interview}</div><div class="kpi-label">面接数</div></div>
-    <div class="kpi"><div class="kpi-val" style="color:#f87171">${total.offer}</div><div class="kpi-label">内定数</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#38bdf8">${total.apply}</div><div class="kpi-label">応募数</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#818cf8">${total.valid}</div><div class="kpi-label">有効応募</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#fbbf24">${total.interview}</div><div class="kpi-label">面接実施</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#fb923c">${total.sales_start}</div><div class="kpi-label">営業開始</div></div>
     <div class="kpi"><div class="kpi-val" style="color:#34d399">${total.hire}</div><div class="kpi-label">入社数</div></div>
-    <div class="kpi"><div class="kpi-val" style="color:#e879f9">${total.deal}</div><div class="kpi-label">案件成約</div></div>
-    <div class="kpi"><div class="kpi-val" style="color:#fb923c">${cpaH!==null?yen(cpaH)+'円':'-'}</div><div class="kpi-label">採用CPA</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#e879f9">${total.deal}</div><div class="kpi-label">成約数</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#fb923c">${cpaD!==null?yen(cpaD)+'円':'-'}</div><div class="kpi-label">成約CPA</div></div>
     <div class="kpi"><div class="kpi-val" style="color:#818cf8">${yen(total.cost)}円</div><div class="kpi-label">総費用</div></div>
   </div>`;
 
   // Insights
   const cpas = {};
-  mediaList.forEach(m => { cpas[m.id] = d[m.id]?.hire ? d[m.id].cost/d[m.id].hire : Infinity; });
+  mediaList.forEach(m => { cpas[m.id] = d[m.id]?.deal ? d[m.id].cost/d[m.id].deal : Infinity; });
   const sorted = Object.entries(cpas).filter(e=>e[1]!==Infinity).sort((a,b)=>a[1]-b[1]);
-  if(sorted.length) html += `<div class="insight insight-good"><strong>最もCPAが良い媒体: ${getMedia(sorted[0][0])?.name}</strong> — 1名あたり ${yen(Math.round(sorted[0][1]))}円</div>`;
+  if(sorted.length) html += `<div class="insight insight-good"><strong>最もCPAが良い媒体: ${getMedia(sorted[0][0])?.name}</strong> — 成約1件あたり ${yen(Math.round(sorted[0][1]))}円</div>`;
 
   mediaList.forEach(m => {
-    const rr = d[m.id]?.scout ? d[m.id].reply/d[m.id].scout*100 : null;
-    if(rr !== null && rr < 8) html += `<div class="insight insight-warn"><strong>${m.name}: スカウト返信率 ${rr.toFixed(1)}%</strong> — 業界平均8-12%を下回っています</div>`;
+    const vr = d[m.id]?.apply ? d[m.id].valid/d[m.id].apply*100 : null;
+    if(vr !== null && vr < 30) html += `<div class="insight insight-warn"><strong>${m.name}: 有効応募率 ${vr.toFixed(1)}%</strong> — ターゲットとのミスマッチの可能性</div>`;
   });
 
   if(total.hire > 0 && total.deal < total.hire){
@@ -336,10 +363,10 @@ function renderOverview(){
     ${mediaList.map(m=>{const c=d[m.id]?.cost||0;return`<div style="flex:${Math.max(c,1)};background:${m.color};display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;min-width:0;overflow:hidden">${total.cost?(c/total.cost*100).toFixed(0)+'%':''}</div>`;}).join('')}
     </div><div class="legend">${mediaList.map(m=>`<div class="legend-item"><span class="legend-dot" style="background:${m.color}"></span>${m.short} ${yen(d[m.id]?.cost||0)}円</div>`).join('')}</div>
   </div>
-  <div class="card"><div class="card-title">採用CPA比較</div>
+  <div class="card"><div class="card-title">成約CPA比較</div>
     <div style="display:flex;gap:12px;justify-content:center;align-items:flex-end;height:120px;margin-top:16px;flex-wrap:wrap">
     ${(()=>{
-      const cpas2=mediaList.map(m=>({m,cpa:d[m.id]?.hire?d[m.id].cost/d[m.id].hire:0}));
+      const cpas2=mediaList.map(m=>({m,cpa:d[m.id]?.deal?d[m.id].cost/d[m.id].deal:0}));
       const mx=Math.max(...cpas2.map(c=>c.cpa),1);
       return cpas2.map(c=>`<div style="text-align:center"><div style="font-size:.7rem;font-weight:700;color:${c.m.color};margin-bottom:3px">${c.cpa?yen(Math.round(c.cpa))+'円':'N/A'}</div><div style="width:40px;height:${mx?(c.cpa/mx*100):0}px;background:${c.m.color};border-radius:4px 4px 0 0"></div><div style="font-size:.65rem;color:#64748b;margin-top:4px">${c.m.short}</div></div>`).join('');
     })()}
@@ -351,8 +378,8 @@ function renderOverview(){
 // ===== FUNNEL =====
 function renderFunnel(){
   const d = currentData;
-  const stages = ['scout','reply','apply','interview','offer','hire','deal'];
-  const stageNames = ['スカウト送信','スカウト返信','応募','面接','内定','入社','案件成約'];
+  const stages = ['apply','valid','interview','sales_start','hire','deal'];
+  const stageNames = ['応募','有効応募','面接実施','営業開始','入社','成約'];
 
   let html = '';
   mediaList.forEach(m => {
@@ -371,7 +398,7 @@ function renderFunnel(){
 
   // Conversion table
   html += `<div class="card fade-in"><div class="card-title">転換率比較</div><table class="media"><thead><tr><th>転換</th>${mediaList.map(m=>`<th style="color:${m.color}">${m.short}</th>`).join('')}<th>平均</th></tr></thead><tbody>`;
-  const convs = [{n:'返信率',f:'scout',t:'reply'},{n:'応募→面接',f:'apply',t:'interview'},{n:'面接→内定',f:'interview',t:'offer'},{n:'内定→入社',f:'offer',t:'hire'},{n:'入社→成約',f:'hire',t:'deal'},{n:'全体(送信→成約)',f:'scout',t:'deal'}];
+  const convs = [{n:'応募→有効応募',f:'apply',t:'valid'},{n:'有効応募→面接',f:'valid',t:'interview'},{n:'面接→営業開始',f:'interview',t:'sales_start'},{n:'営業開始→入社',f:'sales_start',t:'hire'},{n:'入社→成約',f:'hire',t:'deal'},{n:'全体(応募→成約)',f:'apply',t:'deal'}];
   convs.forEach(c=>{
     const vals = mediaList.map(m=>{const md=d[m.id]||{};return md[c.f]?(md[c.t]/md[c.f]*100):0;});
     const mx = Math.max(...vals);
@@ -386,14 +413,14 @@ function renderFunnel(){
 function renderCompare(){
   const d = currentData;
   const metrics = [
-    {name:'掲載費用',key:'cost',fmt:v=>yen(v)+'円',better:'low'},
-    {name:'スカウト送信',key:'scout',fmt:v=>v+'件',better:'high'},
-    {name:'返信率',calc:m=>m.scout?(m.reply/m.scout*100):0,fmt:v=>v.toFixed(1)+'%',better:'high'},
     {name:'応募数',key:'apply',fmt:v=>v+'件',better:'high'},
-    {name:'面接→内定率',calc:m=>m.interview?(m.offer/m.interview*100):0,fmt:v=>v.toFixed(1)+'%',better:'high'},
+    {name:'有効応募率',calc:m=>m.apply?(m.valid/m.apply*100):0,fmt:v=>v.toFixed(1)+'%',better:'high'},
+    {name:'有効応募数',key:'valid',fmt:v=>v+'件',better:'high'},
+    {name:'面接実施数',key:'interview',fmt:v=>v+'件',better:'high'},
+    {name:'面接→営業開始率',calc:m=>m.interview?(m.sales_start/m.interview*100):0,fmt:v=>v.toFixed(1)+'%',better:'high'},
+    {name:'営業開始数',key:'sales_start',fmt:v=>v+'名',better:'high'},
     {name:'入社数',key:'hire',fmt:v=>v+'名',better:'high'},
-    {name:'採用CPA',calc:m=>m.hire?(m.cost/m.hire):null,fmt:v=>v?yen(Math.round(v))+'円':'N/A',better:'low'},
-    {name:'成約CPA',calc:m=>m.deal?(m.cost/m.deal):null,fmt:v=>v?yen(Math.round(v))+'円':'N/A',better:'low'},
+    {name:'成約数',key:'deal',fmt:v=>v+'件',better:'high'},
   ];
 
   let html = `<div class="card fade-in"><div class="card-title">媒体スコアカード</div><table class="media"><thead><tr><th>指標</th>${mediaList.map(m=>`<th style="color:${m.color}">${m.short}</th>`).join('')}<th>最優秀</th></tr></thead><tbody>`;
@@ -421,61 +448,50 @@ function renderCompare(){
 // ===== BOTTLENECK =====
 function renderBottleneck(){
   const d = currentData;
-  const stages = ['scout','reply','apply','interview','offer','hire','deal'];
-  const stageNames = ['スカウト送信','スカウト返信','応募','面接','内定','入社','案件成約'];
+  const stages = ['apply','valid','interview','sales_start','hire','deal'];
+  const stageNames = ['応募','有効応募','面接実施','営業開始','入社','成約'];
 
   // Define actions per bottleneck
   const ACTIONS = {
-    'scout_reply': {
-      title: 'スカウト返信率が低い',
-      icon: '📨',
-      actions: [
-        {text:'スカウト文面のA/Bテスト実施（件名・冒頭文・CTA）', impact:'high'},
-        {text:'送信ターゲットの条件を見直し（経験年数・スキル・現年収帯）', impact:'high'},
-        {text:'送信時間帯の最適化（平日19-21時 or 土曜午前が高反応傾向）', impact:'mid'},
-        {text:'候補者の職務経歴に触れたパーソナライズ文面にする', impact:'high'},
-        {text:'自社の案件単価・リモート率など具体的な魅力を冒頭に', impact:'mid'}
-      ]
-    },
-    'reply_apply': {
-      title: '返信→応募の転換が低い',
+    'apply_valid': {
+      title: '有効応募率が低い',
       icon: '📝',
       actions: [
-        {text:'返信後の初回レスポンスを1時間以内に（スピード勝負）', impact:'high'},
-        {text:'カジュアル面談のハードルを下げる（「まずは情報交換から」）', impact:'mid'},
-        {text:'返信者向けに具体的な案件例を即提示する', impact:'high'},
-        {text:'応募フローのステップ数を削減（フォーム簡略化）', impact:'mid'}
+        {text:'求人原稿のターゲット層を明確化し、ミスマッチ応募を減らす', impact:'high'},
+        {text:'応募条件（必須スキル・経験年数）を見直し、適切な候補者を集める', impact:'high'},
+        {text:'求人タイトル・訴求内容を具体的にし、適性の高い応募を誘導', impact:'mid'},
+        {text:'スクリーニング基準を明確にし、判断のブレを減らす', impact:'mid'}
       ]
     },
-    'apply_interview': {
-      title: '応募→面接設定の歩留まりが悪い',
+    'valid_interview': {
+      title: '有効応募→面接の転換が低い',
       icon: '📅',
       actions: [
         {text:'Calendly/TimeRex導入で即日程確定（メール往復を削減）', impact:'high'},
-        {text:'応募後24時間以内に面接日程を提示する', impact:'high'},
+        {text:'有効応募後24時間以内に面接日程を提示する', impact:'high'},
         {text:'書類選考の基準を明確化し、判断スピードを上げる', impact:'mid'},
         {text:'不合格時も理由付きで迅速に連絡（ブランド毀損防止）', impact:'low'}
       ]
     },
-    'interview_offer': {
-      title: '面接→内定率が低い',
+    'interview_sales_start': {
+      title: '面接→営業開始の歩留まりが悪い',
       icon: '🎯',
       actions: [
-        {text:'書類スクリーニング基準の引き上げ（面接前に質を担保）', impact:'high'},
+        {text:'面接時にスキルシートを同時作成し、営業開始までのリードタイムを短縮', impact:'high'},
         {text:'面接評価シートの標準化（属人的な判断を排除）', impact:'mid'},
-        {text:'1次面接で技術力・案件適性を同時確認する構成に', impact:'mid'},
         {text:'SES特有の評価軸を追加（常駐適性・コミュ力・安定志向）', impact:'mid'},
-        {text:'面接官のキャリブレーション（評価基準の目線合わせ）', impact:'low'}
+        {text:'面接官のキャリブレーション（評価基準の目線合わせ）', impact:'low'},
+        {text:'面接と並行して営業チームへの情報共有を開始する', impact:'high'}
       ]
     },
-    'offer_hire': {
-      title: '内定辞退率が高い',
+    'sales_start_hire': {
+      title: '営業開始→入社に至らない',
       icon: '🤝',
       actions: [
-        {text:'内定後24時間以内にフォロー面談を実施', impact:'high'},
-        {text:'入社前に具体的な配属案件・チーム情報を共有', impact:'high'},
-        {text:'条件面の回答期限を適切に設定（長すぎると他社に流れる）', impact:'mid'},
-        {text:'内定者コミュニティ/先輩社員との接点を作る', impact:'mid'},
+        {text:'営業チームとの連携フロー整備（候補者情報の即時共有）', impact:'high'},
+        {text:'候補者の希望条件を面接時に詳細ヒアリングし営業に共有', impact:'high'},
+        {text:'案件マッチングのDB化（スキル×案件要件の自動マッチ）', impact:'mid'},
+        {text:'内定後24時間以内にフォロー面談を実施', impact:'mid'},
         {text:'競合他社の条件をリサーチし、自社オファーの競争力を確認', impact:'high'}
       ]
     },
@@ -511,11 +527,10 @@ function renderBottleneck(){
   mediaList.forEach(m => {
     const md = d[m.id] || {};
     const convSteps = [
-      {key:'scout_reply', from:'scout', to:'reply', label:'スカウト→返信'},
-      {key:'reply_apply', from:'reply', to:'apply', label:'返信→応募'},
-      {key:'apply_interview', from:'apply', to:'interview', label:'応募→面接'},
-      {key:'interview_offer', from:'interview', to:'offer', label:'面接→内定'},
-      {key:'offer_hire', from:'offer', to:'hire', label:'内定→入社'},
+      {key:'apply_valid', from:'apply', to:'valid', label:'応募→有効応募'},
+      {key:'valid_interview', from:'valid', to:'interview', label:'有効応募→面接'},
+      {key:'interview_sales_start', from:'interview', to:'sales_start', label:'面接→営業開始'},
+      {key:'sales_start_hire', from:'sales_start', to:'hire', label:'営業開始→入社'},
       {key:'hire_deal', from:'hire', to:'deal', label:'入社→成約'}
     ];
 
@@ -584,9 +599,9 @@ function renderBottleneck(){
 
   // Cross-media summary
   html += `<div class="card fade-in"><div class="card-title">全媒体 共通ボトルネック</div>`;
-  const convKeys = ['scout_reply','reply_apply','apply_interview','interview_offer','offer_hire','hire_deal'];
-  const convLabels = ['スカウト→返信','返信→応募','応募→面接','面接→内定','内定→入社','入社→成約'];
-  const fromTo = [['scout','reply'],['reply','apply'],['apply','interview'],['interview','offer'],['offer','hire'],['hire','deal']];
+  const convKeys = ['apply_valid','valid_interview','interview_sales_start','sales_start_hire','hire_deal'];
+  const convLabels = ['応募→有効応募','有効応募→面接','面接→営業開始','営業開始→入社','入社→成約'];
+  const fromTo = [['apply','valid'],['valid','interview'],['interview','sales_start'],['sales_start','hire'],['hire','deal']];
 
   const avgRates = convKeys.map((key,i) => {
     const rates = mediaList.map(m => {
@@ -618,14 +633,14 @@ function renderTrend(){
     document.getElementById('trendArea').innerHTML = `<div class="card"><div class="card-title">月次トレンド</div><p style="color:#94a3b8;font-size:.85rem;padding:20px 0;text-align:center">2ヶ月分以上のデータを保存するとトレンドが表示されます。</p></div>`;
     return;
   }
-  const metrics = [{name:'応募数',key:'apply',color:'#a78bfa'},{name:'入社数',key:'hire',color:'#34d399'},{name:'採用CPA',key:'cpa',calc:true,color:'#f97316'}];
+  const metrics = [{name:'応募数',key:'apply',color:'#a78bfa'},{name:'成約数',key:'deal',color:'#22c55e'},{name:'成約CPA',key:'cpa',calc:true,color:'#f97316'}];
   let html = `<div class="card fade-in"><div class="card-title">月次推移</div>`;
   metrics.forEach(met => {
     html += `<div style="margin:20px 0"><div style="font-size:.85rem;font-weight:600;color:${met.color};margin-bottom:8px">${met.name}</div><div style="display:flex;gap:2px;align-items:flex-end;height:80px">`;
     const vals = months.map(m => {
       const md = allData[m];
       if(met.calc){
-        let tc=0,th=0; mediaList.forEach(media=>{tc+=(md[media.id]?.cost||0);th+=(md[media.id]?.hire||0);}); return th?tc/th:0;
+        let tc=0,td=0; mediaList.forEach(media=>{tc+=(md[media.id]?.cost||0);td+=(md[media.id]?.deal||0);}); return td?tc/td:0;
       }
       return mediaList.reduce((s,media)=>s+(md[media.id]?.[met.key]||0),0);
     });
@@ -641,18 +656,17 @@ function renderTrend(){
 }
 
 // ===== SIMULATE =====
-// ===== SIMULATE (with new media planning) =====
-let simNewMedia = []; // [{id, name, color, budget, replyRate, applyRate, interviewRate, offerRate, hireRate, dealRate, scoutCost}]
+let simNewMedia = [];
 
 const MEDIA_TEMPLATES = {
-  'indeed':    {name:'Indeed',       color:'#2557a7', budget:200000, scoutCost:0, applyRate:0, replyRate:0, interviewRate:50, offerRate:35, hireRate:70, dealRate:85, note:'応募課金型。スカウトなし、応募起点', isApplyBased:true, estApply:20},
-  'wantedly':  {name:'Wantedly',     color:'#21bddb', budget:50000,  scoutCost:500, replyRate:12, applyRate:80, interviewRate:55, offerRate:30, hireRate:65, dealRate:80, note:'カジュアル面談文化。返信率高め'},
-  'green':     {name:'Green',        color:'#00c853', budget:300000, scoutCost:1200, replyRate:8, applyRate:70, interviewRate:50, offerRate:35, hireRate:75, dealRate:90, note:'IT特化。エンジニア経験者が多い'},
-  'lapras':    {name:'LAPRAS',       color:'#6c5ce7', budget:150000, scoutCost:800, replyRate:10, applyRate:75, interviewRate:50, offerRate:40, hireRate:70, dealRate:85, note:'GitHub/Qiita連携。技術力可視化'},
-  'bizreach':  {name:'ビズリーチ',    color:'#d4a853', budget:400000, scoutCost:2000, replyRate:6, applyRate:65, interviewRate:45, offerRate:40, hireRate:80, dealRate:90, note:'ハイクラス。単価高めの案件向き'},
-  'findy':     {name:'Findy',        color:'#ff6b6b', budget:200000, scoutCost:1000, replyRate:9, applyRate:70, interviewRate:50, offerRate:35, hireRate:70, dealRate:85, note:'スキル偏差値。エンジニア特化'},
-  'direct':    {name:'リファラル/直接', color:'#94a3b8', budget:0, scoutCost:0, applyRate:0, replyRate:0, interviewRate:60, offerRate:50, hireRate:85, dealRate:95, note:'紹介経由。転換率が高い', isApplyBased:true, estApply:3},
-  'custom':    {name:'カスタム',      color:'#6366f1', budget:200000, scoutCost:1000, replyRate:8, applyRate:70, interviewRate:50, offerRate:35, hireRate:70, dealRate:85, note:'自由に値を設定'}
+  'indeed':    {name:'Indeed',       color:'#2557a7', budget:200000, estApply:20, validRate:40, interviewRate:50, salesStartRate:70, hireRate:60, dealRate:85, note:'応募課金型。応募起点', isApplyBased:true},
+  'wantedly':  {name:'Wantedly',     color:'#21bddb', budget:50000,  estApply:15, validRate:45, interviewRate:55, salesStartRate:65, hireRate:55, dealRate:80, note:'カジュアル面談文化。返信率高め', isApplyBased:true},
+  'green':     {name:'Green',        color:'#00c853', budget:300000, estApply:25, validRate:35, interviewRate:50, salesStartRate:70, hireRate:65, dealRate:90, note:'IT特化。エンジニア経験者が多い', isApplyBased:true},
+  'lapras':    {name:'LAPRAS',       color:'#6c5ce7', budget:150000, estApply:12, validRate:50, interviewRate:50, salesStartRate:70, hireRate:60, dealRate:85, note:'GitHub/Qiita連携。技術力可視化', isApplyBased:true},
+  'bizreach':  {name:'ビズリーチ',    color:'#d4a853', budget:400000, estApply:10, validRate:40, interviewRate:45, salesStartRate:75, hireRate:70, dealRate:90, note:'ハイクラス。単価高めの案件向き', isApplyBased:true},
+  'findy':     {name:'Findy',        color:'#ff6b6b', budget:200000, estApply:18, validRate:45, interviewRate:50, salesStartRate:65, hireRate:60, dealRate:85, note:'スキル偏差値。エンジニア特化', isApplyBased:true},
+  'direct':    {name:'リファラル/直接', color:'#94a3b8', budget:0, estApply:3, validRate:70, interviewRate:60, salesStartRate:80, hireRate:85, dealRate:95, note:'紹介経由。転換率が高い', isApplyBased:true},
+  'custom':    {name:'カスタム',      color:'#6366f1', budget:200000, estApply:15, validRate:40, interviewRate:50, salesStartRate:65, hireRate:60, dealRate:85, note:'自由に値を設定', isApplyBased:true}
 };
 
 function renderSimulate(){
@@ -662,15 +676,12 @@ function renderSimulate(){
   mediaList.forEach(m => {
     const md = d[m.id]||{};
     rates[m.id] = {
-      replyRate: md.scout?(md.reply/md.scout):0,
-      applyPerReply: md.reply?(md.apply/md.reply):0,
-      interviewRate: md.apply?(md.interview/md.apply):0,
-      offerRate: md.interview?(md.offer/md.interview):0,
-      hireRate: md.offer?(md.hire/md.offer):0,
+      validRate: md.apply?(md.valid/md.apply):0,
+      interviewRate: md.valid?(md.interview/md.valid):0,
+      salesStartRate: md.interview?(md.sales_start/md.interview):0,
+      hireRate: md.sales_start?(md.hire/md.sales_start):0,
       dealRate: md.hire?(md.deal/md.hire):0,
-      costPerScout: md.scout?(md.cost/md.scout):0,
-      costPerApply: md.apply?(md.cost/md.apply):0,
-      hasScout: md.scout > 0
+      costPerApply: md.apply?(md.cost/md.apply):0
     };
   });
 
@@ -725,15 +736,13 @@ function addSimMedia(templateKey){
     name: t.name,
     color: t.color,
     budget: t.budget,
-    scoutCost: t.scoutCost,
-    replyRate: t.replyRate,
-    applyRate: t.applyRate,
+    estApply: t.estApply || 0,
+    validRate: t.validRate,
     interviewRate: t.interviewRate,
-    offerRate: t.offerRate,
+    salesStartRate: t.salesStartRate,
     hireRate: t.hireRate,
     dealRate: t.dealRate,
-    isApplyBased: t.isApplyBased || false,
-    estApply: t.estApply || 0,
+    isApplyBased: true,
     note: t.note
   });
   renderSimNewMedia();
@@ -763,23 +772,13 @@ function renderSimNewMedia(){
 
       <div class="sim-input-grid">
         <div class="sim-field"><label>媒体名</label><input type="text" value="${nm.name}" style="width:120px" onchange="updSimNew('${nm.id}','name',this.value)"></div>
-        <div class="sim-field"><label>月額予算</label><input type="number" value="${nm.budget}" step="10000" onchange="updSimNew('${nm.id}','budget',+this.value)"><span class="unit">円</span></div>`;
-
-    if(nm.isApplyBased){
-      html += `<div class="sim-field"><label>想定応募数/月</label><input type="number" value="${nm.estApply}" min="0" onchange="updSimNew('${nm.id}','estApply',+this.value)"><span class="unit">件</span></div>`;
-    } else {
-      html += `<div class="sim-field"><label>スカウト単価</label><input type="number" value="${nm.scoutCost}" step="100" onchange="updSimNew('${nm.id}','scoutCost',+this.value)"><span class="unit">円</span></div>
-        <div class="sim-field"><label>返信率</label><input type="number" value="${nm.replyRate}" step="0.5" min="0" max="100" onchange="updSimNew('${nm.id}','replyRate',+this.value)"><span class="unit">%</span></div>
-        <div class="sim-field"><label>返信→応募率</label><input type="number" value="${nm.applyRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','applyRate',+this.value)"><span class="unit">%</span></div>`;
-    }
-    html += `<div class="sim-field"><label>応募→面接率</label><input type="number" value="${nm.interviewRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','interviewRate',+this.value)"><span class="unit">%</span></div>
-        <div class="sim-field"><label>面接→内定率</label><input type="number" value="${nm.offerRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','offerRate',+this.value)"><span class="unit">%</span></div>
-        <div class="sim-field"><label>内定→入社率</label><input type="number" value="${nm.hireRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','hireRate',+this.value)"><span class="unit">%</span></div>
+        <div class="sim-field"><label>月額予算</label><input type="number" value="${nm.budget}" step="10000" onchange="updSimNew('${nm.id}','budget',+this.value)"><span class="unit">円</span></div>
+        <div class="sim-field"><label>想定応募数/月</label><input type="number" value="${nm.estApply}" min="0" onchange="updSimNew('${nm.id}','estApply',+this.value)"><span class="unit">件</span></div>
+        <div class="sim-field"><label>応募→有効応募率</label><input type="number" value="${nm.validRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','validRate',+this.value)"><span class="unit">%</span></div>
+        <div class="sim-field"><label>有効応募→面接率</label><input type="number" value="${nm.interviewRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','interviewRate',+this.value)"><span class="unit">%</span></div>
+        <div class="sim-field"><label>面接→営業開始率</label><input type="number" value="${nm.salesStartRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','salesStartRate',+this.value)"><span class="unit">%</span></div>
+        <div class="sim-field"><label>営業開始→入社率</label><input type="number" value="${nm.hireRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','hireRate',+this.value)"><span class="unit">%</span></div>
         <div class="sim-field"><label>入社→成約率</label><input type="number" value="${nm.dealRate}" step="1" min="0" max="100" onchange="updSimNew('${nm.id}','dealRate',+this.value)"><span class="unit">%</span></div>
-        <div class="sim-field"><label>計算方式</label><select onchange="updSimNew('${nm.id}','isApplyBased',this.value==='apply');renderSimNewMedia();updateSim()">
-          <option value="scout" ${!nm.isApplyBased?'selected':''}>スカウト起点</option>
-          <option value="apply" ${nm.isApplyBased?'selected':''}>応募起点（課金/無料）</option>
-        </select></div>
       </div>
 
       <div class="sim-summary" id="snm_result_${nm.id}"></div>
@@ -796,22 +795,14 @@ function updSimNew(id, field, value){
 }
 
 function calcNewMediaResult(nm){
-  let scouts=0, replies=0, applies=0, interviews=0, offers=0, hires=0, deals=0;
-  if(nm.isApplyBased){
-    applies = nm.estApply || 0;
-  } else {
-    if(nm.scoutCost > 0 && nm.budget > 0){
-      scouts = Math.floor(nm.budget / nm.scoutCost);
-    }
-    replies = Math.round(scouts * nm.replyRate / 100);
-    applies = Math.round(replies * nm.applyRate / 100);
-  }
-  interviews = Math.round(applies * nm.interviewRate / 100);
-  offers = Math.round(interviews * nm.offerRate / 100);
-  hires = Math.round(offers * nm.hireRate / 100);
-  deals = Math.round(hires * nm.dealRate / 100);
-  const cpa = hires > 0 ? Math.round(nm.budget / hires) : null;
-  return { scouts, replies, applies, interviews, offers, hires, deals, cpa, budget: nm.budget };
+  const applies = nm.estApply || 0;
+  const valids = Math.round(applies * nm.validRate / 100);
+  const interviews = Math.round(valids * nm.interviewRate / 100);
+  const salesStarts = Math.round(interviews * nm.salesStartRate / 100);
+  const hires = Math.round(salesStarts * nm.hireRate / 100);
+  const deals = Math.round(hires * nm.dealRate / 100);
+  const cpa = deals > 0 ? Math.round(nm.budget / deals) : null;
+  return { applies, valids, interviews, salesStarts, hires, deals, cpa, budget: nm.budget };
 }
 
 function updateSim(){
@@ -826,20 +817,13 @@ function updateSim(){
     if(valEl) valEl.textContent = yen(budget)+'円';
     const r = rates[m.id];
     let hires=0, deals=0;
-    if(r.hasScout && r.costPerScout){
-      const scouts=Math.floor(budget/r.costPerScout);
-      const replies=Math.round(scouts*r.replyRate);
-      const applies=Math.round(replies*r.applyPerReply);
-      const interviews=Math.round(applies*r.interviewRate);
-      const offers=Math.round(interviews*r.offerRate);
-      hires=Math.round(offers*r.hireRate);
-      deals=Math.round(hires*r.dealRate);
-    } else if(r.costPerApply && budget>0){
-      const applies=r.costPerApply?Math.floor(budget/r.costPerApply):0;
-      const interviews=Math.round(applies*r.interviewRate);
-      const offers=Math.round(interviews*r.offerRate);
-      hires=Math.round(offers*r.hireRate);
-      deals=Math.round(hires*r.dealRate);
+    if(r.costPerApply && budget>0){
+      const applies = Math.floor(budget/r.costPerApply);
+      const valids = Math.round(applies*r.validRate);
+      const interviews = Math.round(valids*r.interviewRate);
+      const salesStarts = Math.round(interviews*r.salesStartRate);
+      hires = Math.round(salesStarts*r.hireRate);
+      deals = Math.round(hires*r.dealRate);
     }
     totalCost+=budget; totalHire+=hires; totalDeal+=deals;
   });
@@ -855,9 +839,10 @@ function updateSim(){
     const el = document.getElementById(`snm_result_${nm.id}`);
     if(el){
       el.innerHTML = `
-        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#38bdf8">${nm.isApplyBased?r.applies:r.scouts}</div><div class="sim-summary-label">${nm.isApplyBased?'応募':'スカウト送信'}</div></div>
-        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#a78bfa">${r.applies}</div><div class="sim-summary-label">応募</div></div>
-        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#fbbf24">${r.interviews}</div><div class="sim-summary-label">面接</div></div>
+        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#38bdf8">${r.applies}</div><div class="sim-summary-label">応募</div></div>
+        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#818cf8">${r.valids}</div><div class="sim-summary-label">有効応募</div></div>
+        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#a78bfa">${r.interviews}</div><div class="sim-summary-label">面接</div></div>
+        <div class="sim-summary-item"><div class="sim-summary-val" style="color:#fbbf24">${r.salesStarts}</div><div class="sim-summary-label">営業開始</div></div>
         <div class="sim-summary-item"><div class="sim-summary-val" style="color:#34d399">${r.hires}</div><div class="sim-summary-label">入社</div></div>
         <div class="sim-summary-item"><div class="sim-summary-val" style="color:#22c55e">${r.deals}</div><div class="sim-summary-label">成約</div></div>
         <div class="sim-summary-item"><div class="sim-summary-val" style="color:#f97316">${r.cpa!==null?yen(r.cpa)+'円':'N/A'}</div><div class="sim-summary-label">予測CPA</div></div>`;
@@ -871,7 +856,7 @@ function updateSim(){
     <div class="sim-box"><div class="sim-val" style="color:#818cf8">${yen(totalCost)}円</div><div class="sim-label">総予算</div></div>
     <div class="sim-box"><div class="sim-val" style="color:#34d399">${totalHire}名</div><div class="sim-label">予測入社</div></div>
     <div class="sim-box"><div class="sim-val" style="color:#22c55e">${totalDeal}件</div><div class="sim-label">予測成約</div></div>
-    <div class="sim-box"><div class="sim-val" style="color:#f97316">${cpa?yen(cpa)+'円':'N/A'}</div><div class="sim-label">予測CPA</div></div>
+    <div class="sim-box"><div class="sim-val" style="color:#f97316">${cpa?yen(cpa)+'円':'N/A'}</div><div class="sim-label">入社CPA</div></div>
     <div class="sim-box"><div class="sim-val" style="color:#e879f9">${dcpa?yen(dcpa)+'円':'N/A'}</div><div class="sim-label">成約CPA</div></div>`;
 
   // Comparison vs base (existing only)
@@ -901,7 +886,7 @@ function applyPreset(type){
   const d = currentData;
   const totalBudget = mediaList.reduce((s,m)=>s+(d[m.id]?.cost||0),0);
   const cpas = {};
-  mediaList.forEach(m => { cpas[m.id] = d[m.id]?.hire ? d[m.id].cost/d[m.id].hire : Infinity; });
+  mediaList.forEach(m => { cpas[m.id] = d[m.id]?.deal ? d[m.id].cost/d[m.id].deal : Infinity; });
   const sorted = Object.entries(cpas).sort((a,b)=>a[1]-b[1]);
   const bestK = sorted[0][0], worstK = sorted[sorted.length-1][0];
   const alloc = {}; mediaList.forEach(m=>alloc[m.id]=0);
@@ -925,11 +910,12 @@ function applyPreset(type){
 }
 
 function showTab(id){
-  document.querySelectorAll('.tab').forEach(t=>{
+  document.querySelectorAll('.tab').forEach(function(t){
     t.classList.remove('active');
-    if(t.getAttribute('onclick')?.includes("'"+id+"'")) t.classList.add('active');
+    var oc = t.getAttribute('onclick');
+    if(oc && oc.indexOf("'" + id + "'") !== -1) t.classList.add('active');
   });
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById('sec-'+id).classList.add('active');
 }
 
