@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SES 媒体効果検証レポート</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Hiragino Sans','Meiryo',sans-serif;background:#0a0e1a;color:#e2e8f0;line-height:1.6}
+.wrap{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;text-align:center;margin-bottom:2px;background:linear-gradient(135deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{text-align:center;color:#64748b;font-size:.8rem;margin-bottom:20px}
+
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:7px 16px;border-radius:99px;border:1px solid #1e293b;background:#0f172a;color:#94a3b8;cursor:pointer;font-size:.82rem;transition:.2s}
+.tab:hover{border-color:#475569}.tab.active{background:#6366f1;color:#fff;border-color:#6366f1}
+.section{display:none}.section.active{display:block}
+
+.card{background:#111827;border:1px solid #1e293b;border-radius:14px;padding:20px;margin-bottom:14px}
+.card-title{font-size:1rem;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Data entry */
+.month-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.month-tab{padding:5px 12px;border-radius:8px;border:1px solid #1e293b;background:#0a0e1a;color:#64748b;cursor:pointer;font-size:.78rem}
+.month-tab.active{background:#1e293b;color:#e2e8f0;border-color:#334155}
+.media-section{margin-bottom:16px}
+.media-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 0;border-bottom:1px solid #1e293b}
+.media-name{font-weight:700;font-size:.9rem}
+
+table.entry{width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:6px}
+table.entry th{text-align:center;padding:6px 4px;color:#64748b;font-weight:600;font-size:.72rem;border-bottom:1px solid #1e293b}
+table.entry td{padding:4px;text-align:center}
+table.entry input{width:100%;background:#0a0e1a;border:1px solid #1e293b;color:#e2e8f0;padding:6px 4px;border-radius:6px;text-align:right;font-size:.85rem;font-variant-numeric:tabular-nums}
+table.entry input:focus{outline:none;border-color:#6366f1}
+table.entry .rate{color:#fbbf24;font-size:.75rem;font-weight:600}
+
+/* CSV import */
+.drop-zone{border:2px dashed #1e293b;border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:12px}
+.drop-zone:hover,.drop-zone.drag{border-color:#6366f1;background:#0f172a}
+.drop-zone input{display:none}
+.drop-label{color:#64748b;font-size:.85rem}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px}
+.kpi{background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:12px;text-align:center}
+.kpi-val{font-size:1.4rem;font-weight:800}.kpi-label{font-size:.68rem;color:#64748b;margin-top:2px}
+.kpi-sub{font-size:.7rem;margin-top:3px;font-weight:600}
+.up{color:#34d399}.down{color:#f87171}.flat{color:#94a3b8}
+
+/* Report table */
+table.report{width:100%;border-collapse:collapse;font-size:.82rem}
+table.report th{text-align:center;padding:8px 4px;color:#64748b;font-weight:600;border-bottom:2px solid #1e293b;font-size:.72rem;white-space:nowrap}
+table.report th.left{text-align:left}
+table.report td{padding:8px 4px;text-align:center;border-bottom:1px solid #0f172a;font-variant-numeric:tabular-nums}
+table.report td.left{text-align:left}
+table.report tr:hover{background:#0f172a}
+table.report .best{color:#34d399;font-weight:700}
+table.report .worst{color:#f87171}
+table.report .total-row{background:#0a0e1a;font-weight:700}
+table.report .rate-cell{color:#fbbf24;font-size:.78rem}
+
+/* Funnel */
+.funnel-wrap{margin:12px 0}
+.funnel-step{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.funnel-label{min-width:80px;font-size:.78rem;color:#94a3b8;text-align:right}
+.funnel-bar{height:26px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:.73rem;font-weight:600;color:#fff;min-width:30px;transition:width .5s}
+.funnel-rate{font-size:.7rem;color:#fbbf24;margin-left:6px;white-space:nowrap}
+
+/* Quarter comparison */
+.q-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+
+/* Insight */
+.insight{border-radius:10px;padding:12px;margin:8px 0;font-size:.84rem}
+.insight-good{background:#021a0a;border:1px solid #064e3b;color:#6ee7b7}
+.insight-warn{background:#1a0f05;border:1px solid #78350f;color:#fbbf24}
+.insight-info{background:#0c1425;border:1px solid #1e3a5f;color:#7dd3fc}
+.insight strong{font-weight:700}
+
+/* Buttons */
+.btn{padding:8px 20px;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;transition:.2s}
+.btn-primary{background:#6366f1;color:#fff}.btn-primary:hover{background:#818cf8}
+.btn-secondary{background:#1e293b;color:#cbd5e1}.btn-secondary:hover{background:#334155}
+.btn-danger{background:#7f1d1d;color:#fca5a5}.btn-danger:hover{background:#991b1b}
+.btn-row{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+
+.note{font-size:.78rem;color:#475569;margin-top:8px}
+.legend{display:flex;gap:14px;margin:8px 0;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:.72rem;color:#94a3b8}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.fade-in{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:768px){.chart-row{grid-template-columns:1fr}.q-grid{grid-template-columns:1fr}}
+
+/* SS copy button */
+.copy-area{background:#0a0e1a;border:1px solid #1e293b;border-radius:8px;padding:12px;margin:10px 0;font-size:.78rem;color:#94a3b8;white-space:pre;overflow-x:auto;font-family:'Consolas','Monaco',monospace;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>SES 媒体効果検証レポート</h1>
+<p class="sub">マイナビ・エン転職・type・doda・HP(Airワーク) ｜ 応募→有効応募→面接設定→面接実施→営業開始→入社</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('input')">データ入力</div>
+  <div class="tab" onclick="showTab('monthly')">月次レポート</div>
+  <div class="tab" onclick="showTab('quarter')">Q効果検証</div>
+  <div class="tab" onclick="showTab('funnel')">ファネル分析</div>
+  <div class="tab" onclick="showTab('ss')">スプレッドシート出力</div>
+</div>
+
+<!-- ===== INPUT ===== -->
+<div class="section active" id="sec-input">
+  <div class="card">
+    <div class="card-title">対象期間</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="selYear" class="tab" style="border-radius:8px;padding:6px 12px;background:#0f172a;color:#e2e8f0;border:1px solid #1e293b">
+        <option value="2025">2025年</option>
+        <option value="2026" selected>2026年</option>
+      </select>
+      <div class="month-tabs" id="monthTabs"></div>
+    </div>
+  </div>
+
+  <!-- CSV Import -->
+  <div class="card">
+    <div class="card-title">CSV取り込み（管理画面エクスポート）</div>
+    <p style="font-size:.8rem;color:#94a3b8;margin-bottom:10px">各媒体の管理画面からエクスポートしたCSVをドロップ、または手入力で対応できます。</p>
+    <div class="chart-row">
+      <div>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <input type="file" id="csvFile" accept=".csv" multiple onchange="handleFiles(this.files)">
+          <div class="drop-label">CSVファイルをドロップ or クリック</div>
+          <div style="font-size:.7rem;color:#334155;margin-top:4px">複数ファイル対応</div>
+        </div>
+        <div id="importLog" style="font-size:.75rem;color:#64748b"></div>
+      </div>
+      <div style="font-size:.8rem;color:#64748b">
+        <strong style="color:#94a3b8">CSV列の自動マッピング:</strong><br>
+        「応募」「有効応募」「面接設定」「面接実施」「営業開始」「入社」を含む列名を自動検出します。<br><br>
+        <strong style="color:#94a3b8">手動入力も可能:</strong><br>
+        下の表に直接数値を入力してください。
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual entry tables -->
+  <div id="entryTables"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="runAnalysis()">分析実行 →</button>
+    <button class="btn btn-secondary" onclick="saveAll()">データ保存</button>
+    <button class="btn btn-secondary" onclick="loadSample()">サンプルデータ</button>
+    <button class="btn btn-danger" onclick="if(confirm('全データを削除しますか？'))localStorage.removeItem('ses_q_data')">リセット</button>
+  </div>
+</div>
+
+<!-- ===== MONTHLY ===== -->
+<div class="section" id="sec-monthly">
+  <div id="monthlyArea"></div>
+</div>
+
+<!-- ===== QUARTER ===== -->
+<div class="section" id="sec-quarter">
+  <div id="quarterArea"></div>
+</div>
+
+<!-- ===== FUNNEL ===== -->
+<div class="section" id="sec-funnel">
+  <div id="funnelArea"></div>
+</div>
+
+<!-- ===== SS OUTPUT ===== -->
+<div class="section" id="sec-ss">
+  <div id="ssArea"></div>
+</div>
+</div>
+
+<script>
+const MEDIA = [
+  {id:'mynavi', name:'マイナビ転職', color:'#3b82f6'},
+  {id:'en',     name:'エン転職',     color:'#f59e0b'},
+  {id:'type',   name:'type',         color:'#22c55e'},
+  {id:'doda',   name:'doda',         color:'#ec4899'},
+  {id:'airwork',name:'HP(Airワーク)',color:'#14b8a6'}
+];
+const STAGES = ['apply','valid','interview_set','interview_done','sales_start','hire'];
+const STAGE_NAMES = ['応募','有効応募','面接設定','面接実施','営業開始','入社'];
+const STAGE_COLORS = ['#38bdf8','#818cf8','#a78bfa','#fbbf24','#fb923c','#34d399'];
+const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12];
+const Q_MAP = {1:'Q1',2:'Q1',3:'Q1',4:'Q2',5:'Q2',6:'Q2',7:'Q3',8:'Q3',9:'Q3',10:'Q4',11:'Q4',12:'Q4'};
+
+let store = JSON.parse(localStorage.getItem('ses_q_data')||'{}');
+let currentMonth = new Date().getMonth(); // 0-indexed, we'll use for selecting
+
+// ===== INIT =====
+function init(){
+  renderMonthTabs();
+  renderEntryTables();
+  loadFromStore();
+}
+
+function renderMonthTabs(){
+  const container = document.getElementById('monthTabs');
+  const cm = new Date().getMonth()+1;
+  container.innerHTML = MONTHS.map(m =>
+    `<div class="month-tab ${m===cm?'active':''}" data-m="${m}" onclick="selectMonth(${m})">${m}月</div>`
+  ).join('');
+}
+
+function selectMonth(m){
+  document.querySelectorAll('.month-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.month-tab[data-m="${m}"]`).classList.add('active');
+  highlightMonth(m);
+}
+
+function highlightMonth(m){
+  document.querySelectorAll('.entry-month-col').forEach(el=>{
+    el.style.background = parseInt(el.dataset.month)===m ? '#1e293b' : '';
+  });
+}
+
+function renderEntryTables(){
+  const area = document.getElementById('entryTables');
+  let html = '';
+  MEDIA.forEach(media => {
+    html += `<div class="card media-section">
+      <div class="media-header"><span class="dot" style="background:${media.color}"></span><span class="media-name">${media.name}</span></div>
+      <div style="overflow-x:auto"><table class="entry"><thead><tr><th class="left" style="text-align:left;min-width:70px">指標</th>`;
+    MONTHS.forEach(m => {
+      html += `<th>${m}月</th>`;
+    });
+    html += `<th style="color:#a78bfa">年計</th></tr></thead><tbody>`;
+
+    STAGES.forEach((stage,si) => {
+      html += `<tr><td class="left" style="text-align:left;font-size:.78rem;color:${STAGE_COLORS[si]}">${STAGE_NAMES[si]}</td>`;
+      MONTHS.forEach(m => {
+        html += `<td class="entry-month-col" data-month="${m}"><input type="number" min="0" id="${media.id}_${stage}_${m}" onchange="calcRates('${media.id}')" value="0"></td>`;
+      });
+      html += `<td id="${media.id}_${stage}_total" style="font-weight:700;color:#e2e8f0">0</td></tr>`;
+
+      // conversion rate row
+      if(si > 0){
+        html += `<tr><td class="left" style="text-align:left;font-size:.68rem;color:#475569">↑ 転換率</td>`;
+        MONTHS.forEach(m => {
+          html += `<td><span class="rate" id="${media.id}_rate_${STAGES[si-1]}_${stage}_${m}">-</span></td>`;
+        });
+        html += `<td><span class="rate" id="${media.id}_rate_${STAGES[si-1]}_${stage}_total">-</span></td></tr>`;
+      }
+    });
+    html += `</tbody></table></div></div>`;
+  });
+  area.innerHTML = html;
+}
+
+function calcRates(mediaId){
+  STAGES.forEach((stage,si) => {
+    let yearTotal = 0;
+    MONTHS.forEach(m => {
+      const val = getVal(mediaId, stage, m);
+      yearTotal += val;
+      if(si > 0){
+        const prev = getVal(mediaId, STAGES[si-1], m);
+        setRate(mediaId, STAGES[si-1], stage, m, prev, val);
+      }
+    });
+    document.getElementById(`${mediaId}_${stage}_total`).textContent = yearTotal;
+    if(si > 0){
+      let prevTotal = parseInt(document.getElementById(`${mediaId}_${STAGES[si-1]}_total`).textContent)||0;
+      setRate(mediaId, STAGES[si-1], stage, 'total', prevTotal, yearTotal);
+    }
+  });
+}
+
+function getVal(media, stage, month){
+  return parseInt(document.getElementById(`${media}_${stage}_${month}`)?.value)||0;
+}
+
+function setVal(media, stage, month, val){
+  const el = document.getElementById(`${media}_${stage}_${month}`);
+  if(el) el.value = val;
+}
+
+function setRate(media, from, to, month, prevVal, curVal){
+  const el = document.getElementById(`${media}_rate_${from}_${to}_${month}`);
+  if(!el) return;
+  if(prevVal > 0){
+    const r = (curVal/prevVal*100).toFixed(1);
+    el.textContent = r + '%';
+    el.style.color = parseFloat(r) >= 50 ? '#34d399' : parseFloat(r) >= 25 ? '#fbbf24' : '#f87171';
+  } else {
+    el.textContent = '-';
+    el.style.color = '#475569';
+  }
+}
+
+// ===== CSV IMPORT =====
+function handleDrop(e){
+  e.preventDefault();
+  e.target.closest('.drop-zone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files){
+  const log = document.getElementById('importLog');
+  log.innerHTML = '';
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      const result = parseCSV(text, file.name);
+      log.innerHTML += `<div style="margin:4px 0">${result}</div>`;
+    };
+    reader.readAsText(file, 'Shift_JIS');
+    // Also try UTF-8
+    const reader2 = new FileReader();
+    reader2.onload = e => {
+      const text = e.target.result;
+      // only use if shift_jis failed (check for garbled chars)
+    };
+    reader2.readAsText(file, 'UTF-8');
+  });
+}
+
+function parseCSV(text, filename){
+  const lines = text.split('\n').map(l=>l.split(',').map(c=>c.trim().replace(/"/g,'')));
+  if(lines.length < 2) return `${filename}: データなし`;
+
+  // Detect media from filename
+  let mediaId = null;
+  const fn = filename.toLowerCase();
+  if(fn.includes('マイナビ')||fn.includes('mynavi')) mediaId='mynavi';
+  else if(fn.includes('エン')||fn.includes('en-')||fn.includes('en転職')) mediaId='en';
+  else if(fn.includes('doda')||fn.includes('デューダ')) mediaId='doda';
+  else if(fn.includes('airwork')||fn.includes('airワーク')||fn.includes('エアワーク')||fn.includes('hp')) mediaId='airwork';
+  else if(fn.includes('type')) mediaId='type';
+
+  if(!mediaId){
+    return `⚠ ${filename}: 媒体を判別できません（ファイル名にマイナビ/エン/typeを含めてください）`;
+  }
+
+  // Find header row and map columns
+  const header = lines[0];
+  const colMap = {};
+  const keywords = {
+    'apply': ['応募','応募数','応募者数'],
+    'valid': ['有効応募','有効','書類通過'],
+    'interview_set': ['面接設定','面接調整','面接日程'],
+    'interview_done': ['面接実施','面接済','面接完了'],
+    'sales_start': ['営業開始','営業','稼働開始'],
+    'hire': ['入社','採用','入社数']
+  };
+
+  header.forEach((h,i) => {
+    for(let [stage, kws] of Object.entries(keywords)){
+      if(kws.some(kw => h.includes(kw))){
+        colMap[stage] = i;
+        break;
+      }
+    }
+  });
+
+  // Try to find month column
+  let monthCol = header.findIndex(h => h.includes('月') || h.includes('month'));
+  let imported = 0;
+
+  for(let r=1; r<lines.length; r++){
+    const row = lines[r];
+    if(row.length < 2) continue;
+    let month = null;
+    if(monthCol >= 0){
+      const mMatch = row[monthCol].match(/(\d{1,2})/);
+      if(mMatch) month = parseInt(mMatch[1]);
+    }
+    if(!month){
+      // Try to detect month from first column
+      const mMatch = row[0].match(/(\d{1,2})月/);
+      if(mMatch) month = parseInt(mMatch[1]);
+    }
+    if(!month || month < 1 || month > 12) continue;
+
+    for(let [stage, col] of Object.entries(colMap)){
+      const val = parseInt(row[col]) || 0;
+      if(val >= 0) setVal(mediaId, stage, month, val);
+    }
+    imported++;
+  }
+
+  calcRates(mediaId);
+  const mediaName = MEDIA.find(m=>m.id===mediaId).name;
+  return imported > 0
+    ? `✓ ${mediaName}: ${imported}ヶ月分のデータを取り込みました`
+    : `⚠ ${filename}: データ行を検出できませんでした`;
+}
+
+// ===== SAVE/LOAD =====
+function saveAll(){
+  const year = document.getElementById('selYear').value;
+  if(!store[year]) store[year] = {};
+  MEDIA.forEach(media => {
+    if(!store[year][media.id]) store[year][media.id] = {};
+    MONTHS.forEach(m => {
+      if(!store[year][media.id][m]) store[year][media.id][m] = {};
+      STAGES.forEach(stage => {
+        store[year][media.id][m][stage] = getVal(media.id, stage, m);
+      });
+    });
+  });
+  localStorage.setItem('ses_q_data', JSON.stringify(store));
+  alert(`${year}年のデータを保存しました`);
+}
+
+function loadFromStore(){
+  const year = document.getElementById('selYear').value;
+  if(!store[year]) return;
+  MEDIA.forEach(media => {
+    if(!store[year][media.id]) return;
+    MONTHS.forEach(m => {
+      if(!store[year][media.id][m]) return;
+      STAGES.forEach(stage => {
+        const val = store[year][media.id][m][stage];
+        if(val !== undefined) setVal(media.id, stage, m, val);
+      });
+    });
+    calcRates(media.id);
+  });
+}
+
+function loadSample(){
+  const samples = {
+    mynavi: [[12,8,6,5,3,2],[15,10,8,6,4,2],[18,12,9,7,4,3],[10,7,5,4,2,1],[14,9,7,5,3,2],[16,11,8,6,4,3],[8,5,4,3,2,1],[13,9,7,5,3,2],[17,12,9,7,5,3],[11,7,5,4,2,1],[15,10,8,6,4,3],[19,13,10,8,5,3]],
+    en:     [[8,5,4,3,2,1],[10,6,5,4,2,1],[12,8,6,4,3,2],[7,4,3,2,1,1],[9,6,4,3,2,1],[11,7,5,4,3,2],[6,4,3,2,1,1],[10,6,5,3,2,1],[13,8,6,5,3,2],[8,5,3,2,1,1],[11,7,5,4,2,1],[14,9,7,5,3,2]],
+    type:   [[10,7,5,4,3,2],[12,8,6,5,3,2],[14,10,8,6,4,3],[9,6,5,4,2,1],[11,8,6,5,3,2],[13,9,7,5,4,3],[7,5,4,3,2,1],[11,7,6,4,3,2],[15,10,8,6,4,3],[9,6,4,3,2,1],[12,8,6,5,3,2],[16,11,8,6,4,3]],
+    doda:   [[9,6,4,3,2,1],[11,7,5,4,2,1],[13,9,7,5,3,2],[8,5,4,3,1,1],[10,7,5,4,2,1],[12,8,6,5,3,2],[7,4,3,2,1,1],[9,6,5,4,2,1],[14,9,7,5,3,2],[8,5,4,3,2,1],[10,7,5,4,2,1],[13,9,7,5,3,2]],
+    airwork:[[5,3,2,2,1,1],[6,4,3,2,1,1],[8,5,4,3,2,1],[4,3,2,1,1,0],[6,4,3,2,1,1],[7,5,3,2,2,1],[3,2,2,1,1,0],[5,3,3,2,1,1],[8,5,4,3,2,1],[4,3,2,1,1,0],[6,4,3,2,1,1],[9,6,4,3,2,1]]
+  };
+  MEDIA.forEach(media => {
+    MONTHS.forEach((m,mi) => {
+      STAGES.forEach((stage,si) => {
+        setVal(media.id, stage, m, samples[media.id][mi][si]);
+      });
+    });
+    calcRates(media.id);
+  });
+}
+
+// ===== ANALYSIS =====
+function runAnalysis(){
+  renderMonthly();
+  renderQuarter();
+  renderFunnelAnalysis();
+  renderSS();
+  showTab('monthly');
+}
+
+function getData(){
+  const data = {};
+  MEDIA.forEach(media => {
+    data[media.id] = {};
+    MONTHS.forEach(m => {
+      data[media.id][m] = {};
+      STAGES.forEach(stage => {
+        data[media.id][m][stage] = getVal(media.id, stage, m);
+      });
+    });
+  });
+  return data;
+}
+
+function sumMonths(mediaData, months, stage){
+  return months.reduce((s,m) => s + (mediaData[m]?.[stage]||0), 0);
+}
+
+// ===== MONTHLY REPORT =====
+function renderMonthly(){
+  const data = getData();
+  let html = '';
+
+  // KPI for selected month or latest with data
+  const latestMonth = [...MONTHS].reverse().find(m =>
+    MEDIA.some(media => STAGES.some(s => data[media.id][m]?.[s] > 0))
+  ) || new Date().getMonth()+1;
+
+  // Summary KPIs
+  let totalApply=0, totalValid=0, totalHire=0;
+  MEDIA.forEach(media => {
+    totalApply += data[media.id][latestMonth]?.apply||0;
+    totalValid += data[media.id][latestMonth]?.valid||0;
+    totalHire += data[media.id][latestMonth]?.hire||0;
+  });
+  const overallRate = totalApply ? (totalHire/totalApply*100).toFixed(1) : '-';
+
+  html += `<div class="kpi-row fade-in">
+    <div class="kpi"><div class="kpi-val" style="color:#38bdf8">${totalApply}</div><div class="kpi-label">${latestMonth}月 総応募数</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#818cf8">${totalValid}</div><div class="kpi-label">有効応募</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#34d399">${totalHire}</div><div class="kpi-label">入社数</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#fbbf24">${overallRate}%</div><div class="kpi-label">応募→入社率</div></div>
+  </div>`;
+
+  // Monthly cross-media table
+  html += `<div class="card fade-in"><div class="card-title">月次 媒体別実績</div>
+    <div style="overflow-x:auto"><table class="report"><thead><tr>
+    <th class="left">月</th>`;
+  MEDIA.forEach(media => {
+    STAGE_NAMES.forEach(s => html += `<th style="font-size:.65rem">${media.name.replace('転職','')}<br>${s}</th>`);
+  });
+  html += `<th>合計<br>応募</th><th>合計<br>入社</th><th>応募→<br>入社率</th></tr></thead><tbody>`;
+
+  MONTHS.forEach(m => {
+    let mApply=0, mHire=0;
+    html += `<tr><td class="left" style="font-weight:600">${m}月</td>`;
+    MEDIA.forEach(media => {
+      STAGES.forEach(stage => {
+        const v = data[media.id][m][stage];
+        html += `<td>${v||'-'}</td>`;
+      });
+      mApply += data[media.id][m].apply||0;
+      mHire += data[media.id][m].hire||0;
+    });
+    const mRate = mApply ? (mHire/mApply*100).toFixed(1)+'%' : '-';
+    html += `<td style="font-weight:700">${mApply||'-'}</td><td style="font-weight:700;color:#34d399">${mHire||'-'}</td><td class="rate-cell">${mRate}</td></tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+
+  // Insights
+  html += generateMonthlyInsights(data, latestMonth);
+
+  document.getElementById('monthlyArea').innerHTML = html;
+}
+
+function generateMonthlyInsights(data, month){
+  let html = '';
+  // Best performing media this month
+  let bestMedia = '', bestHire = 0;
+  MEDIA.forEach(media => {
+    const h = data[media.id][month]?.hire||0;
+    if(h > bestHire){ bestHire = h; bestMedia = media.name; }
+  });
+  if(bestMedia){
+    html += `<div class="insight insight-good"><strong>${month}月の最多入社: ${bestMedia}（${bestHire}名）</strong></div>`;
+  }
+
+  // Low valid rate warning
+  MEDIA.forEach(media => {
+    const apply = data[media.id][month]?.apply||0;
+    const valid = data[media.id][month]?.valid||0;
+    if(apply > 0 && valid/apply < 0.5){
+      html += `<div class="insight insight-warn"><strong>${media.name}: 有効応募率 ${(valid/apply*100).toFixed(0)}%</strong> — 求人票の訴求内容とターゲットのミスマッチの可能性。</div>`;
+    }
+  });
+
+  // Interview no-show
+  MEDIA.forEach(media => {
+    const set = data[media.id][month]?.interview_set||0;
+    const done = data[media.id][month]?.interview_done||0;
+    if(set > 0 && done/set < 0.7){
+      html += `<div class="insight insight-warn"><strong>${media.name}: 面接実施率 ${(done/set*100).toFixed(0)}%</strong> — 面接辞退/無断欠席が多い。リマインド強化 or 設定→実施の期間短縮を検討。</div>`;
+    }
+  });
+
+  return html;
+}
+
+// ===== QUARTER REPORT =====
+function renderQuarter(){
+  const data = getData();
+  const quarters = {
+    'Q1': [1,2,3], 'Q2': [4,5,6], 'Q3': [7,8,9], 'Q4': [10,11,12]
+  };
+
+  let html = '';
+
+  // Q comparison cards
+  html += `<div class="q-grid fade-in">`;
+  Object.entries(quarters).forEach(([qName, months]) => {
+    let qTotal = {};
+    STAGES.forEach(s => qTotal[s] = 0);
+    MEDIA.forEach(media => {
+      months.forEach(m => {
+        STAGES.forEach(s => qTotal[s] += data[media.id][m]?.[s]||0);
+      });
+    });
+    const rate = qTotal.apply ? (qTotal.hire/qTotal.apply*100).toFixed(1) : '-';
+
+    html += `<div class="card">
+      <div class="card-title" style="font-size:1.1rem">${qName}（${months[0]}-${months[2]}月）</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0">
+        <div class="kpi" style="padding:8px"><div class="kpi-val" style="font-size:1.1rem;color:#38bdf8">${qTotal.apply}</div><div class="kpi-label">応募</div></div>
+        <div class="kpi" style="padding:8px"><div class="kpi-val" style="font-size:1.1rem;color:#34d399">${qTotal.hire}</div><div class="kpi-label">入社</div></div>
+        <div class="kpi" style="padding:8px"><div class="kpi-val" style="font-size:1.1rem;color:#fbbf24">${rate}%</div><div class="kpi-label">応募→入社</div></div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Detailed Q comparison table
+  html += `<div class="card fade-in"><div class="card-title">Q別 媒体別効果比較</div>
+    <div style="overflow-x:auto"><table class="report"><thead><tr>
+    <th class="left">媒体</th><th class="left">Q</th>`;
+  STAGE_NAMES.forEach(s => html += `<th>${s}</th>`);
+  html += `<th>応募→入社</th><th>有効→入社</th></tr></thead><tbody>`;
+
+  MEDIA.forEach(media => {
+    Object.entries(quarters).forEach(([qName, months],qi) => {
+      const qd = {};
+      STAGES.forEach(s => qd[s] = sumMonths(data[media.id], months, s));
+      const aToH = qd.apply ? (qd.hire/qd.apply*100).toFixed(1)+'%' : '-';
+      const vToH = qd.valid ? (qd.hire/qd.valid*100).toFixed(1)+'%' : '-';
+
+      html += `<tr ${qi===0?`style="border-top:2px solid ${media.color}22"`:''}>
+        <td class="left" ${qi===0?`rowspan="4" style="color:${media.color};font-weight:700;vertical-align:top"`:qi>0?'style="display:none"':''}>${qi===0?media.name:''}</td>
+        <td class="left" style="font-weight:600">${qName}</td>`;
+      STAGES.forEach(s => html += `<td>${qd[s]||'-'}</td>`);
+      html += `<td class="rate-cell">${aToH}</td><td class="rate-cell">${vToH}</td></tr>`;
+    });
+  });
+
+  // Totals per Q
+  Object.entries(quarters).forEach(([qName, months]) => {
+    const qd = {};
+    STAGES.forEach(s => qd[s] = 0);
+    MEDIA.forEach(media => months.forEach(m => STAGES.forEach(s => qd[s] += data[media.id][m]?.[s]||0)));
+    const aToH = qd.apply ? (qd.hire/qd.apply*100).toFixed(1)+'%' : '-';
+    const vToH = qd.valid ? (qd.hire/qd.valid*100).toFixed(1)+'%' : '-';
+    html += `<tr class="total-row"><td class="left">全媒体</td><td class="left">${qName}</td>`;
+    STAGES.forEach(s => html += `<td>${qd[s]||'-'}</td>`);
+    html += `<td class="rate-cell">${aToH}</td><td class="rate-cell">${vToH}</td></tr>`;
+  });
+
+  html += `</tbody></table></div></div>`;
+
+  // Q-over-Q insights
+  html += generateQuarterInsights(data, quarters);
+
+  document.getElementById('quarterArea').innerHTML = html;
+}
+
+function generateQuarterInsights(data, quarters){
+  let html = '';
+  const qEntries = Object.entries(quarters);
+
+  // Compare latest two Qs
+  for(let i=1; i<qEntries.length; i++){
+    const [prevQ, prevMonths] = qEntries[i-1];
+    const [currQ, currMonths] = qEntries[i];
+    let prevHire=0, currHire=0, prevApply=0, currApply=0;
+    MEDIA.forEach(media => {
+      prevMonths.forEach(m => { prevHire+=data[media.id][m]?.hire||0; prevApply+=data[media.id][m]?.apply||0; });
+      currMonths.forEach(m => { currHire+=data[media.id][m]?.hire||0; currApply+=data[media.id][m]?.apply||0; });
+    });
+    if(prevHire > 0 && currHire > 0){
+      const change = ((currHire - prevHire)/prevHire*100).toFixed(0);
+      const cls = change > 0 ? 'insight-good' : change < 0 ? 'insight-warn' : 'insight-info';
+      html += `<div class="insight ${cls}"><strong>${prevQ}→${currQ}: 入社数 ${prevHire}→${currHire}名（${change>0?'+':''}${change}%）</strong></div>`;
+    }
+  }
+
+  // Media Q comparison
+  MEDIA.forEach(media => {
+    const qRates = [];
+    qEntries.forEach(([qName, months]) => {
+      const apply = sumMonths(data[media.id], months, 'apply');
+      const hire = sumMonths(data[media.id], months, 'hire');
+      qRates.push({q: qName, rate: apply ? hire/apply : 0, hire});
+    });
+    const improving = qRates.length >= 2 && qRates[qRates.length-1].rate > qRates[qRates.length-2].rate;
+    const declining = qRates.length >= 2 && qRates[qRates.length-1].rate < qRates[qRates.length-2].rate && qRates[qRates.length-2].rate > 0;
+    if(declining){
+      html += `<div class="insight insight-warn"><strong>${media.name}: 応募→入社率が低下傾向</strong> — ターゲット精度 or 面接プロセスの見直しを推奨。</div>`;
+    }
+  });
+
+  return html;
+}
+
+// ===== FUNNEL =====
+function renderFunnelAnalysis(){
+  const data = getData();
+  const quarters = {'Q1':[1,2,3],'Q2':[4,5,6],'Q3':[7,8,9],'Q4':[10,11,12]};
+
+  let html = `<div class="card fade-in"><div class="card-title">媒体別 年間ファネル</div>`;
+
+  MEDIA.forEach(media => {
+    const yearly = {};
+    STAGES.forEach(s => yearly[s] = MONTHS.reduce((sum,m)=>sum+(data[media.id][m]?.[s]||0),0));
+    const maxVal = Math.max(...Object.values(yearly), 1);
+
+    html += `<div style="margin:16px 0"><div style="font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px"><span class="dot" style="background:${media.color}"></span>${media.name}</div>
+      <div class="funnel-wrap">`;
+
+    STAGES.forEach((s,i) => {
+      const val = yearly[s];
+      const w = Math.max((val/maxVal)*100, 4);
+      const prev = i > 0 ? yearly[STAGES[i-1]] : null;
+      const rate = prev ? `← ${(val/prev*100).toFixed(1)}%` : '';
+      html += `<div class="funnel-step">
+        <div class="funnel-label">${STAGE_NAMES[i]}</div>
+        <div class="funnel-bar" style="width:${w}%;background:${STAGE_COLORS[i]}">${val}</div>
+        ${rate ? `<div class="funnel-rate">${rate}</div>` : ''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+
+  // Conversion bottleneck analysis
+  html += `<div class="card fade-in"><div class="card-title">ボトルネック分析</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:10px">各段階の転換率が最も低い（改善インパクトが大きい）ポイント</p>`;
+
+  MEDIA.forEach(media => {
+    const yearly = {};
+    STAGES.forEach(s => yearly[s] = MONTHS.reduce((sum,m)=>sum+(data[media.id][m]?.[s]||0),0));
+    let worstRate = 100, worstStep = '';
+    for(let i=1; i<STAGES.length; i++){
+      const prev = yearly[STAGES[i-1]];
+      const cur = yearly[STAGES[i]];
+      if(prev > 0){
+        const rate = cur/prev*100;
+        if(rate < worstRate){ worstRate = rate; worstStep = `${STAGE_NAMES[i-1]}→${STAGE_NAMES[i]}`; }
+      }
+    }
+    if(worstStep){
+      html += `<div class="insight insight-warn"><strong>${media.name}</strong>: 最大のボトルネックは「<strong>${worstStep}</strong>」（転換率 ${worstRate.toFixed(1)}%）</div>`;
+    }
+  });
+  html += `</div>`;
+
+  document.getElementById('funnelArea').innerHTML = html;
+}
+
+// ===== SPREADSHEET OUTPUT =====
+function renderSS(){
+  const data = getData();
+  const year = document.getElementById('selYear').value;
+
+  // Generate tab-separated for easy paste to spreadsheet
+  let tsv = `${year}年 媒体効果検証レポート\n\n`;
+
+  MEDIA.forEach(media => {
+    tsv += `【${media.name}】\n`;
+    tsv += `月\t${STAGE_NAMES.join('\t')}\t応募→入社率\n`;
+    MONTHS.forEach(m => {
+      const vals = STAGES.map(s => data[media.id][m]?.[s]||0);
+      const rate = vals[0] ? (vals[5]/vals[0]*100).toFixed(1)+'%' : '-';
+      tsv += `${m}月\t${vals.join('\t')}\t${rate}\n`;
+    });
+    // Q totals
+    const quarters = {'Q1':[1,2,3],'Q2':[4,5,6],'Q3':[7,8,9],'Q4':[10,11,12]};
+    Object.entries(quarters).forEach(([qName, months]) => {
+      const vals = STAGES.map(s => sumMonths(data[media.id], months, s));
+      const rate = vals[0] ? (vals[5]/vals[0]*100).toFixed(1)+'%' : '-';
+      tsv += `${qName}\t${vals.join('\t')}\t${rate}\n`;
+    });
+    const yearVals = STAGES.map(s => MONTHS.reduce((sum,m)=>sum+(data[media.id][m]?.[s]||0),0));
+    const yearRate = yearVals[0] ? (yearVals[5]/yearVals[0]*100).toFixed(1)+'%' : '-';
+    tsv += `年計\t${yearVals.join('\t')}\t${yearRate}\n\n`;
+  });
+
+  // All media combined
+  tsv += `【全媒体合計】\n`;
+  tsv += `月\t${STAGE_NAMES.join('\t')}\t応募→入社率\n`;
+  MONTHS.forEach(m => {
+    const vals = STAGES.map(s => MEDIA.reduce((sum,media)=>sum+(data[media.id][m]?.[s]||0),0));
+    const rate = vals[0] ? (vals[5]/vals[0]*100).toFixed(1)+'%' : '-';
+    tsv += `${m}月\t${vals.join('\t')}\t${rate}\n`;
+  });
+
+  let html = `<div class="card fade-in">
+    <div class="card-title">スプレッドシート用データ</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:10px">下のデータをコピーしてGoogleスプレッドシートに貼り付けてください。タブ区切りなのでそのままセルに展開されます。</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="copyTSV()">クリップボードにコピー</button>
+      <button class="btn btn-secondary" onclick="downloadTSV()">TSVダウンロード</button>
+      <button class="btn btn-secondary" onclick="downloadCSVReport()">CSVダウンロード</button>
+    </div>
+    <div class="copy-area" id="tsvOutput">${escapeHtml(tsv)}</div>
+  </div>`;
+
+  document.getElementById('ssArea').innerHTML = html;
+  window._tsvData = tsv;
+}
+
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function copyTSV(){
+  navigator.clipboard.writeText(window._tsvData).then(()=>alert('コピーしました！スプレッドシートに貼り付けてください。'));
+}
+
+function downloadTSV(){
+  const blob = new Blob(['\uFEFF'+window._tsvData],{type:'text/tab-separated-values;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`media_report_${document.getElementById('selYear').value}.tsv`;a.click();
+}
+
+function downloadCSVReport(){
+  const csv = window._tsvData.replace(/\t/g,',');
+  const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`media_report_${document.getElementById('selYear').value}.csv`;a.click();
+}
+
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('sec-'+id).classList.add('active');
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
