@@ -1162,7 +1162,8 @@ function renderCompetitor(){
 function renderSimPL(){
   // Aggregate actual data across all months for funnel rates
   // Use PRELOAD_DATA as authoritative source (localStorage may have stale cost:0 data)
-  let totApply=0,totValid=0,totInterview=0,totSalesStart=0,totHire=0,totCost=0;
+  // === Actual data from spreadsheets (応募スコア12-2月 + 媒体費用 + PL) ===
+  let totApply=0,totValid=0,totInterview=0,totSalesStart=0,totHire=0,totDeal=0,totCost=0;
   const plData = typeof PRELOAD_DATA!=='undefined' ? PRELOAD_DATA : allData;
   Object.values(plData).forEach(md=>{
     mediaList.forEach(m=>{
@@ -1172,20 +1173,33 @@ function renderSimPL(){
       totInterview+=(md[m.id].interview||0);
       totSalesStart+=(md[m.id].sales_start||0);
       totHire+=(md[m.id].hire||0);
+      totDeal+=(md[m.id].deal||0);
       totCost+=(md[m.id].cost||0);
     });
   });
-  // Fallback: if cost is still 0 but we know media is ~1.5M/month
-  if(totCost===0){ totCost=5818000; }
+  if(totCost===0){ totCost=5818000; } // fallback
 
-  // Default values from context
+  // PL constants (from PL最新)
+  const ENG_REVENUE = 600000;   // エンジニア1人あたり月売上
+  const ENG_MARGIN_RATE = 0.17; // 粗利率17%
+  const ENG_MARGIN = Math.round(ENG_REVENUE * ENG_MARGIN_RATE); // ~102,000
+  const INTERNAL_COST = 2650000; // 内勤人件費/月
+  const LOAN_PAYMENT = 529996;   // 融資返済/月
+  const CURRENT_ENG = 39;        // 現稼働エンジニア数(2026/03)
+  const MONTHLY_MEDIA = Math.round(totCost / 3); // ~194万/月
+
+  const monthsData = 3; // 12月-2月の3ヶ月
   const defTarget=20, defCPA=200000;
   const defR1=totApply?Math.round(totValid/totApply*100):28;
   const defR2=totValid?Math.round(totInterview/totValid*100):49;
   const defR3=totInterview?Math.round(totSalesStart/totInterview*100):78;
   const defR4=totSalesStart?Math.round(totHire/totSalesStart*100):4;
-  const actualCPA=totHire>0?Math.round(totCost/totHire):2600000;
-  const monthsData=Object.keys(allData).length||3;
+  // 入社ベースCPA
+  const actualCPA_hire=totHire>0?Math.round(totCost/totHire):2910000;
+  // 成約ベースCPA（SESでは成約=売上発生なのでこちらが重要）
+  const actualCPA_deal=totDeal>0?Math.round(totCost/totDeal):530000;
+  // 営業開始ベースCPA（営業開始=案件提案開始）
+  const actualCPA_sales=totSalesStart>0?Math.round(totCost/totSalesStart):108000;
 
   let html = '';
 
@@ -1241,10 +1255,11 @@ function renderSimPL(){
         <div style="font-size:.78rem;color:#94a3b8;margin-top:6px">ファネル上流は比較的健全に機能しているが、最終ステップで大量に離脱している。これがCPA高騰の最大要因。</div>
       </div>
       <div style="background:#1a0f05;border:1px solid #78350f;border-radius:10px;padding:16px">
-        <div style="font-size:.72rem;color:#fbbf24;margin-bottom:4px">CPA実績 vs 目標</div>
-        <div style="font-size:1.1rem;font-weight:800;color:#fbbf24;margin-bottom:6px">実績CPA: ${yen(actualCPA)}円</div>
-        <div style="font-size:.8rem;color:#fcd34d">目標CPA 20万円の <strong>${(actualCPA/200000).toFixed(0)}倍</strong></div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-top:6px">総媒体費 ${yen(totCost)}円 / ${totHire}名入社 = ${yen(actualCPA)}円/名（${monthsData}ヶ月実績）</div>
+        <div style="font-size:.72rem;color:#fbbf24;margin-bottom:4px">CPA実績（${monthsData}ヶ月, 月額${yen(MONTHLY_MEDIA)}円）</div>
+        <div style="font-size:1rem;font-weight:800;color:#fbbf24;margin-bottom:4px">入社CPA: ${yen(actualCPA_hire)}円 <span style="font-size:.75rem;color:#fcd34d">（${totCost>0?yen(totCost):'-'}円÷${totHire}名）</span></div>
+        <div style="font-size:1rem;font-weight:800;color:#fb923c;margin-bottom:4px">成約CPA: ${yen(actualCPA_deal)}円 <span style="font-size:.75rem;color:#fed7aa">（${yen(totCost)}円÷${totDeal}件）</span></div>
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:6px">目標CPA20万 vs 成約CPA${yen(actualCPA_deal)}円 → <strong style="color:#fbbf24">あと${Math.round((actualCPA_deal-200000)/10000)}万円の改善が必要</strong></div>
+        <div style="font-size:.72rem;color:#475569;margin-top:4px">※SESでは成約（案件参画）=売上発生のため、成約CPAを重視</div>
       </div>
       <div style="background:#0c1425;border:1px solid #1e3a5f;border-radius:10px;padding:16px">
         <div style="font-size:.72rem;color:#7dd3fc;margin-bottom:4px">有効応募率</div>
@@ -1509,9 +1524,9 @@ function updateSimPL(){
   // ===== ROI =====
   const roiEl = document.getElementById('spl_roi');
   if(roiEl){
-    const revPerEng = 600000;
-    const marginRate = 0.17;
-    const marginPerEng = Math.round(revPerEng * marginRate);
+    const revPerEng = ENG_REVENUE;     // 600,000
+    const marginRate = ENG_MARGIN_RATE; // 0.17
+    const marginPerEng = ENG_MARGIN;    // ~102,000
     const totalRecruit = target * cpaTgt;
     const monthlyRevAdd = target * revPerEng;
     const monthlyMarginAdd = target * marginPerEng;
@@ -1555,12 +1570,13 @@ function updateSimPL(){
     // Additional PL detail
     rh += `<div style="margin-top:14px;background:#0f172a;border-radius:10px;padding:14px">
       <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;color:#a78bfa">月次PLインパクト詳細</div>
-      <table class="media"><thead><tr><th>項目</th><th>現状（39名）</th><th>目標後（${39+target}名）</th><th>差分</th></tr></thead><tbody>
-        <tr><td>月間売上</td><td class="num">${yen(39*revPerEng)}円</td><td class="num" style="color:#34d399;font-weight:700">${yen((39+target)*revPerEng)}円</td><td class="num" style="color:#34d399">+${yen(target*revPerEng)}円</td></tr>
-        <tr><td>月間粗利</td><td class="num">${yen(Math.round(39*marginPerEng))}円</td><td class="num" style="color:#34d399;font-weight:700">${yen(Math.round((39+target)*marginPerEng))}円</td><td class="num" style="color:#34d399">+${yen(target*marginPerEng)}円</td></tr>
-        <tr><td>内部人件費</td><td class="num">265万円</td><td class="num">265万円</td><td class="num" style="color:#94a3b8">+0円</td></tr>
-        <tr><td>借入返済</td><td class="num">53万円</td><td class="num">53万円</td><td class="num" style="color:#94a3b8">+0円</td></tr>
-        <tr><td>媒体費（月額）</td><td class="num">${yen(150*10000)}円</td><td class="num">${yen(Math.round(totalRecruit/6))}円</td><td class="num" style="color:#f87171">+${yen(Math.max(0,Math.round(totalRecruit/6)-1500000))}円</td></tr>
+      <table class="media"><thead><tr><th>項目</th><th>現状（${CURRENT_ENG}名）</th><th>目標後（${CURRENT_ENG+target}名）</th><th>差分</th></tr></thead><tbody>
+        <tr><td>月間売上</td><td class="num">${yen(CURRENT_ENG*revPerEng)}円</td><td class="num" style="color:#34d399;font-weight:700">${yen((CURRENT_ENG+target)*revPerEng)}円</td><td class="num" style="color:#34d399">+${yen(target*revPerEng)}円</td></tr>
+        <tr><td>月間粗利</td><td class="num">${yen(Math.round(CURRENT_ENG*marginPerEng))}円</td><td class="num" style="color:#34d399;font-weight:700">${yen(Math.round((CURRENT_ENG+target)*marginPerEng))}円</td><td class="num" style="color:#34d399">+${yen(target*marginPerEng)}円</td></tr>
+        <tr><td>内勤人件費</td><td class="num">${yen(INTERNAL_COST)}円</td><td class="num">${yen(INTERNAL_COST)}円</td><td class="num" style="color:#94a3b8">±0</td></tr>
+        <tr><td>融資返済</td><td class="num">${yen(LOAN_PAYMENT)}円</td><td class="num">${yen(LOAN_PAYMENT)}円</td><td class="num" style="color:#94a3b8">±0</td></tr>
+        <tr><td>媒体費（月額）</td><td class="num">${yen(MONTHLY_MEDIA)}円</td><td class="num">${yen(Math.round(totalRecruit/6))}円</td><td class="num" style="color:${Math.round(totalRecruit/6)>MONTHLY_MEDIA?'#f87171':'#34d399'}">${Math.round(totalRecruit/6)>MONTHLY_MEDIA?'+':''}${yen(Math.round(totalRecruit/6)-MONTHLY_MEDIA)}円</td></tr>
+        <tr style="border-top:2px solid #334155"><td style="font-weight:700">営業利益</td><td class="num" style="font-weight:700">${yen(CURRENT_ENG*marginPerEng-INTERNAL_COST-LOAN_PAYMENT-MONTHLY_MEDIA)}円</td><td class="num" style="font-weight:700;color:#34d399">${yen((CURRENT_ENG+target)*marginPerEng-INTERNAL_COST-LOAN_PAYMENT-Math.round(totalRecruit/6))}円</td><td class="num" style="font-weight:700;color:#34d399">+${yen(target*marginPerEng-(Math.round(totalRecruit/6)-MONTHLY_MEDIA))}円</td></tr>
       </tbody></table>
     </div>`;
 
