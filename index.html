@@ -1021,7 +1021,7 @@ function renderCompetitor(){
   html += `</tr>`;
 
   // Row: 特徴的な制度
-  html += `<tr><td>特徴的な制度</td><td style="color:#a78bfa;font-size:.78rem">AIマッチング<br>前給与保証<br>副業OK<br>年休125日</td>`;
+  html += `<tr><td>特徴的な制度</td><td style="color:#a78bfa;font-size:.78rem">AIマッチング<br>前給与保証<br>副業OK<br>年休125日<br><strong>社会福祉士によるメンタル＋公的扶助サポート</strong></td>`;
   compareCompanies.forEach(c=>{ html += `<td style="font-size:.78rem">${c.features.replace(/, /g,'<br>')}</td>`; });
   html += `</tr>`;
 
@@ -1037,7 +1037,8 @@ function renderCompetitor(){
         <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>平均年収UP 180万円（Cloud Softの148万を上回る業界トップ水準）</li>
         <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>リモート率93%（VISIONARY JAPANと同等、業界最高水準）</li>
         <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>残業 月6.1h（VISIONARY JAPAN 5-8h、ESES 7hと同等以下）</li>
-        <li style="padding:8px 0;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>副業OK（エンジニアの副収入ニーズに対応）</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>副業OK（エンジニアの副収入ニーズに対応）</li>
+        <li style="padding:8px 0;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>人事責任者が社会福祉士資格を保有 → メンタルケア＋公的扶助（傷病手当金・自立支援医療・障害年金等）の取得に伴走できる。SES業界で唯一無二の福利厚生</li>
       </ul>
     </div>
     <div class="card"><div class="card-title"><span class="dot" style="background:#f87171"></span>Rezonの弱み・課題</div>
@@ -1086,6 +1087,18 @@ function renderCompetitor(){
         '「開発エンジニア平均年収670万円」の実績値を明記',
         '「前職給与保証あり」で転職リスクゼロを強調',
         '具体的な年収モデル（経験3年→550万、5年→700万 等）を提示'
+      ]
+    },
+    {
+      title: '社会福祉士×SES — 業界唯一の安心サポート',
+      icon: '&#129505;',
+      impact: 'high',
+      items: [
+        '「人事責任者が国家資格"社会福祉士"を保有」— 競合ゼロの独自訴求',
+        '「メンタル不調時も専門知識を持つ担当者が伴走」— SES業界の離職理由TOP3はメンタル。ここに刺さる',
+        '「傷病手当金・自立支援医療・障害年金など公的扶助の申請もサポート」— エンジニアが知らない制度を案内できる',
+        '「技術だけでなく、人生に寄り添う会社」というブランディングで他社と完全差別化',
+        '稼働中エンジニアの定着率向上にも直結（離職防止→営業安定→売上安定）'
       ]
     },
     {
