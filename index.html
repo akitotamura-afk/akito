@@ -137,41 +137,42 @@ const FIELD_UNITS = ['円','件','件','件','件','件','件'];
 const PALETTE = ['#3b82f6','#f59e0b','#22c55e','#ec4899','#14b8a6','#f97316','#8b5cf6','#06b6d4','#e11d48','#84cc16','#6366f1','#fb923c'];
 const STAGE_COLORS = ['#38bdf8','#818cf8','#a78bfa','#fbbf24','#fb923c','#34d399','#22c55e'];
 
-// Preloaded real data from 応募スコア12月～2月
+// Preloaded real data from 応募スコア12月～2月 + 媒体費用.xlsx
+// deal = 成約数（過去入社者の案件決定を含むためファネル外で管理）
 const PRELOAD_DATA = {
   '2025-12': {
     month:'2025-12',
-    en:{cost:521400,apply:50,valid:20,interview:10,sales_start:4,hire:1,deal:1},
-    dd:{cost:397833,apply:18,valid:8,interview:0,sales_start:0,hire:0,deal:2},
-    mn:{cost:412500,apply:50,valid:20,interview:9,sales_start:4,hire:0,deal:3},
-    tp:{cost:409444,apply:19,valid:4,interview:2,sales_start:2,hire:0,deal:1},
-    aw:{cost:0,apply:0,valid:0,interview:0,sales_start:0,hire:0,deal:0}
+    mn:{cost:412500, apply:50, valid:20, interview:9,  sales_start:4, hire:0, deal:2},
+    en:{cost:521400, apply:50, valid:20, interview:10, sales_start:4, hire:1, deal:0},
+    tp:{cost:409444, apply:19, valid:4,  interview:2,  sales_start:2, hire:0, deal:1},
+    dd:{cost:397833, apply:18, valid:8,  interview:0,  sales_start:0, hire:0, deal:2},
+    hp:{cost:0,      apply:0,  valid:0,  interview:0,  sales_start:0, hire:0, deal:1}
   },
   '2026-01': {
     month:'2026-01',
-    en:{cost:521400,apply:41,valid:12,interview:5,sales_start:5,hire:0,deal:1},
-    dd:{cost:397833,apply:21,valid:9,interview:6,sales_start:6,hire:1,deal:1},
-    mn:{cost:412500,apply:41,valid:12,interview:7,sales_start:5,hire:0,deal:2},
-    tp:{cost:440000,apply:37,valid:4,interview:2,sales_start:2,hire:0,deal:0},
-    aw:{cost:0,apply:19,valid:4,interview:4,sales_start:3,hire:0,deal:0}
+    mn:{cost:412500, apply:41, valid:12, interview:7, sales_start:5, hire:0, deal:2},
+    en:{cost:521400, apply:41, valid:12, interview:5, sales_start:5, hire:0, deal:1},
+    tp:{cost:440000, apply:37, valid:4,  interview:2, sales_start:2, hire:0, deal:0},
+    dd:{cost:397833, apply:21, valid:9,  interview:6, sales_start:6, hire:1, deal:0},
+    hp:{cost:266667, apply:19, valid:4,  interview:4, sales_start:3, hire:0, deal:0}
   },
   '2026-02': {
     month:'2026-02',
-    en:{cost:521400,apply:40,valid:16,interview:8,sales_start:8,hire:0,deal:0},
-    dd:{cost:397833,apply:12,valid:4,interview:4,sales_start:3,hire:0,deal:1},
-    mn:{cost:412500,apply:40,valid:16,interview:8,sales_start:8,hire:0,deal:0},
-    tp:{cost:440000,apply:57,valid:14,interview:10,sales_start:6,hire:0,deal:0},
-    aw:{cost:0,apply:67,valid:10,interview:7,sales_start:2,hire:0,deal:2}
+    mn:{cost:412500, apply:40, valid:16, interview:8, sales_start:8, hire:0, deal:0},
+    en:{cost:521400, apply:40, valid:16, interview:8, sales_start:8, hire:0, deal:0},
+    tp:{cost:440000, apply:57, valid:14, interview:10,sales_start:6, hire:0, deal:1},
+    dd:{cost:397833, apply:12, valid:4,  interview:4, sales_start:3, hire:0, deal:1},
+    hp:{cost:266667, apply:67, valid:10, interview:7, sales_start:2, hire:0, deal:0}
   }
 };
 
-// Default media
+// Default media (Airワーク+Indeed = HP/Indeed)
 const DEFAULT_MEDIA = [
   {id:'mn',name:'マイナビ転職',short:'マイナビ'},
   {id:'en',name:'エン転職',short:'エン'},
   {id:'tp',name:'type',short:'type'},
   {id:'dd',name:'doda',short:'doda'},
-  {id:'aw',name:'HP(Airワーク)',short:'Airワーク'}
+  {id:'hp',name:'HP/Indeed',short:'HP/Indeed'}
 ];
 
 let mediaList = JSON.parse(localStorage.getItem('ses_media_list')||'null') || DEFAULT_MEDIA.map((m,i)=>({...m,color:PALETTE[i]}));
@@ -378,8 +379,8 @@ function renderOverview(){
 // ===== FUNNEL =====
 function renderFunnel(){
   const d = currentData;
-  const stages = ['apply','valid','interview','sales_start','hire','deal'];
-  const stageNames = ['応募','有効応募','面接実施','営業開始','入社','成約'];
+  const stages = ['apply','valid','interview','sales_start','hire'];
+  const stageNames = ['応募','有効応募','面接実施','営業開始','入社'];
 
   let html = '';
   mediaList.forEach(m => {
@@ -398,7 +399,7 @@ function renderFunnel(){
 
   // Conversion table
   html += `<div class="card fade-in"><div class="card-title">転換率比較</div><table class="media"><thead><tr><th>転換</th>${mediaList.map(m=>`<th style="color:${m.color}">${m.short}</th>`).join('')}<th>平均</th></tr></thead><tbody>`;
-  const convs = [{n:'応募→有効応募',f:'apply',t:'valid'},{n:'有効応募→面接',f:'valid',t:'interview'},{n:'面接→営業開始',f:'interview',t:'sales_start'},{n:'営業開始→入社',f:'sales_start',t:'hire'},{n:'入社→成約',f:'hire',t:'deal'},{n:'全体(応募→成約)',f:'apply',t:'deal'}];
+  const convs = [{n:'応募→有効応募',f:'apply',t:'valid'},{n:'有効応募→面接',f:'valid',t:'interview'},{n:'面接→営業開始',f:'interview',t:'sales_start'},{n:'営業開始→入社',f:'sales_start',t:'hire'},{n:'全体(応募→入社)',f:'apply',t:'hire'}];
   convs.forEach(c=>{
     const vals = mediaList.map(m=>{const md=d[m.id]||{};return md[c.f]?(md[c.t]/md[c.f]*100):0;});
     const mx = Math.max(...vals);
@@ -448,8 +449,8 @@ function renderCompare(){
 // ===== BOTTLENECK =====
 function renderBottleneck(){
   const d = currentData;
-  const stages = ['apply','valid','interview','sales_start','hire','deal'];
-  const stageNames = ['応募','有効応募','面接実施','営業開始','入社','成約'];
+  const stages = ['apply','valid','interview','sales_start','hire'];
+  const stageNames = ['応募','有効応募','面接実施','営業開始','入社'];
 
   // Define actions per bottleneck
   const ACTIONS = {
@@ -531,7 +532,7 @@ function renderBottleneck(){
       {key:'valid_interview', from:'valid', to:'interview', label:'有効応募→面接'},
       {key:'interview_sales_start', from:'interview', to:'sales_start', label:'面接→営業開始'},
       {key:'sales_start_hire', from:'sales_start', to:'hire', label:'営業開始→入社'},
-      {key:'hire_deal', from:'hire', to:'deal', label:'入社→成約'}
+      // deal excluded from funnel (cross-month metric)
     ];
 
     // Calculate rates
@@ -599,9 +600,9 @@ function renderBottleneck(){
 
   // Cross-media summary
   html += `<div class="card fade-in"><div class="card-title">全媒体 共通ボトルネック</div>`;
-  const convKeys = ['apply_valid','valid_interview','interview_sales_start','sales_start_hire','hire_deal'];
-  const convLabels = ['応募→有効応募','有効応募→面接','面接→営業開始','営業開始→入社','入社→成約'];
-  const fromTo = [['apply','valid'],['valid','interview'],['interview','sales_start'],['sales_start','hire'],['hire','deal']];
+  const convKeys = ['apply_valid','valid_interview','interview_sales_start','sales_start_hire'];
+  const convLabels = ['応募→有効応募','有効応募→面接','面接→営業開始','営業開始→入社'];
+  const fromTo = [['apply','valid'],['valid','interview'],['interview','sales_start'],['sales_start','hire']];
 
   const avgRates = convKeys.map((key,i) => {
     const rates = mediaList.map(m => {
