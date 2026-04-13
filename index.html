@@ -1163,226 +1163,355 @@ function renderCompetitor(){
 
 // ===== 採用PLシミュレーション =====
 function renderSimPL(){
-  // Aggregate actual data across all months for funnel rates
-  // Use PRELOAD_DATA as authoritative source (localStorage may have stale cost:0 data)
-  // === Actual data from spreadsheets (応募スコア12-2月 + 媒体費用 + PL) ===
-  let totApply=0,totValid=0,totInterview=0,totSalesStart=0,totHire=0,totDeal=0,totCost=0;
-  const plData = typeof PRELOAD_DATA!=='undefined' ? PRELOAD_DATA : allData;
-  Object.values(plData).forEach(md=>{
-    mediaList.forEach(m=>{
-      if(!md[m.id]) return;
-      totApply+=(md[m.id].apply||0);
-      totValid+=(md[m.id].valid||0);
-      totInterview+=(md[m.id].interview||0);
-      totSalesStart+=(md[m.id].sales_start||0);
-      totHire+=(md[m.id].hire||0);
-      totDeal+=(md[m.id].deal||0);
-      totCost+=(md[m.id].cost||0);
-    });
-  });
-  if(totCost===0){ totCost=5818000; } // fallback
+  // === PL constants ===
+  const ENG_REVENUE = 600000;
+  const ENG_MARGIN_RATE = 0.17;
+  const ENG_MARGIN = Math.round(ENG_REVENUE * ENG_MARGIN_RATE);
+  const CURRENT_ENG = 41; // 2026/03 actual
 
-  // PL constants (from PL最新)
-  const ENG_REVENUE = 600000;   // エンジニア1人あたり月売上
-  const ENG_MARGIN_RATE = 0.17; // 粗利率17%
-  const ENG_MARGIN = Math.round(ENG_REVENUE * ENG_MARGIN_RATE); // ~102,000
-  const INTERNAL_COST = 2650000; // 内勤人件費/月
-  const LOAN_PAYMENT = 529996;   // 融資返済/月
-  const CURRENT_ENG = 39;        // 現稼働エンジニア数(2026/03)
-  const MONTHLY_MEDIA = Math.round(totCost / 3); // ~194万/月
+  // === Headcount plan data (from PL sheets + core meeting) ===
+  const hcPlan = [
+    {m:'2025/03',active:1,net:4,re:3,sales:1,hr:0,type:'actual'},
+    {m:'2025/04',active:5,net:4,re:1,sales:1,hr:0,type:'actual'},
+    {m:'2025/05',active:6,net:2,re:1,sales:1,hr:0,type:'actual'},
+    {m:'2025/06',active:8,net:4,re:2,sales:1,hr:0,type:'actual'},
+    {m:'2025/07',active:13,net:3,re:0,sales:1,hr:0,type:'actual'},
+    {m:'2025/08',active:15,net:4,re:2,sales:1,hr:0,type:'actual'},
+    {m:'2025/09',active:18,net:7,re:3,sales:1,hr:0,type:'actual'},
+    {m:'2025/10',active:26,net:2,re:0,sales:1,hr:0,type:'actual'},
+    {m:'2025/11',active:27,net:3,re:5,sales:1,hr:0,type:'actual'},
+    {m:'2025/12',active:30,net:6,re:5,sales:1,hr:0,type:'actual',note:'新人事責任者着任前'},
+    {m:'2026/01',active:36,net:2,re:2,sales:2,hr:1,type:'actual',note:'新人事責任者着任'},
+    {m:'2026/02',active:38,net:3,re:2,sales:3,hr:2,type:'actual'},
+    {m:'2026/03',active:41,net:7,re:11,sales:3,hr:2,type:'actual'},
+    {m:'2026/04',active:48,net:13,re:2,sales:3,hr:2,type:'plan'},
+    {m:'2026/05',active:61,net:13,re:2,sales:3,hr:2,type:'plan'},
+    {m:'2026/06',active:74,net:13,re:6,sales:3,hr:2,type:'plan'},
+    {m:'2026/07',active:87,net:18,re:4,sales:3,hr:2,type:'plan'},
+    {m:'2026/08',active:105,net:18,re:4,sales:3,hr:2,type:'plan'},
+    {m:'2026/09',active:123,net:18,re:10,sales:3,hr:2,type:'plan'},
+    {m:'2026/10',active:141,net:14,re:6,sales:3,hr:2,type:'plan'},
+    {m:'2026/11',active:155,net:14,re:7,sales:3,hr:2,type:'plan'},
+    {m:'2026/12',active:170,net:14,re:16,sales:3,hr:2,type:'plan'}
+  ];
 
-  const monthsData = 3; // 12月-2月の3ヶ月
-  const defTarget=20, defCPA=200000;
-  const defR1=totApply?Math.round(totValid/totApply*100):28;
-  const defR2=totValid?Math.round(totInterview/totValid*100):49;
-  const defR3=totInterview?Math.round(totSalesStart/totInterview*100):78;
-  const defR4=totSalesStart?Math.round(totHire/totSalesStart*100):4;
-  // 入社ベースCPA
-  const actualCPA_hire=totHire>0?Math.round(totCost/totHire):2910000;
-  // 成約ベースCPA（SESでは成約=売上発生なのでこちらが重要）
-  const actualCPA_deal=totDeal>0?Math.round(totCost/totDeal):530000;
-  // 営業開始ベースCPA（営業開始=案件提案開始）
-  const actualCPA_sales=totSalesStart>0?Math.round(totCost/totSalesStart):108000;
+  // Milestones
+  const milestones = [
+    {label:'April',active:75,netPerMonth:10,gross:5500000,labor:3000000,ratio:54},
+    {label:'August',active:100,netPerMonth:15,gross:7000000,labor:4250000,ratio:61},
+    {label:'December',active:150,netPerMonth:20,gross:11000000,labor:5150000,ratio:47},
+    {label:'Jan 2027',active:200,netPerMonth:20,gross:16000000,labor:6550000,ratio:41}
+  ];
+
+  // Funnel data (応募スコア 12-2月)
+  const funnelData = [
+    {m:'12月',apply:137,valid:52,interview:21,salesStart:10,hire:1,deal:6,salesPeople:1},
+    {m:'1月',apply:159,valid:41,interview:24,salesStart:21,hire:1,deal:3,salesPeople:2},
+    {m:'2月',apply:216,valid:60,interview:37,salesStart:27,hire:0,deal:2,salesPeople:3}
+  ];
+
+  // Media cost breakdown
+  const mediaCosts = [
+    {name:'マイナビ',cost:412500},
+    {name:'エン転職',cost:521400},
+    {name:'type',cost:440000,newCost:314000},
+    {name:'DODA',cost:397800,newCost:308000},
+    {name:'Indeed/Airワーク',cost:267000}
+  ];
 
   let html = '';
 
-  // ===== Section 1: 目標逆算シミュレーター =====
-  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#6366f1"></span>Section 1: 目標逆算シミュレーター</div>
-    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">採用目標とCPA目標から、必要な応募数・媒体予算を逆算します。スライダーで値を変更すると即座に再計算されます。</p>
+  // ===== Section 1: 計画ダッシュボード =====
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#6366f1"></span>Section 1: 計画ダッシュボード（稼働人数推移）</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">コア定例・PLシートベースの稼働人数計画。2026/03まで実績、以降は計画値。</p>`;
+
+  // KPI summary
+  html += `<div class="kpi-row" style="margin-bottom:16px">
+    <div class="kpi"><div class="kpi-val" style="color:#6366f1">41名</div><div class="kpi-label">現在稼働 (2026/03実績)</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#38bdf8">170名</div><div class="kpi-label">目標稼働 (2026/12計画)</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#34d399">+129名</div><div class="kpi-label">9ヶ月間純増目標</div></div>
+    <div class="kpi"><div class="kpi-val" style="color:#fbbf24">200名</div><div class="kpi-label">2027/01 最終目標</div></div>
+  </div>`;
+
+  // Bar chart
+  const maxActive = 200;
+  html += `<div style="background:#0f172a;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;gap:3px;align-items:flex-end;height:200px;padding-bottom:30px;position:relative;overflow-x:auto">`;
+  hcPlan.forEach((d,i)=>{
+    const h = Math.max(d.active/maxActive*160, 4);
+    const isActual = d.type==='actual';
+    const color = isActual ? '#6366f1' : '#818cf8';
+    const opacity = isActual ? '1' : '0.7';
+    const isMilestone = [75,100,150].some(ms=>d.active>=ms && (i===0||hcPlan[i-1].active<ms));
+    const borderStyle = isMilestone ? 'border:2px solid #fbbf24;' : '';
+    html += `<div style="flex:1;min-width:32px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
+      <div style="font-size:.55rem;font-weight:700;color:#e2e8f0;margin-bottom:1px">${d.active}</div>
+      <div style="font-size:.5rem;color:#34d399;margin-bottom:1px">+${d.net}</div>
+      <div style="width:80%;height:${h}px;background:${color};border-radius:4px 4px 0 0;opacity:${opacity};${borderStyle}position:relative"></div>
+      <div style="font-size:.48rem;color:#64748b;margin-top:3px;transform:rotate(-45deg);white-space:nowrap">${d.m.replace('20','')}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Milestone markers
+  html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+    <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div>実績</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#818cf8;opacity:.7"></div>計画</div>
+  </div>`;
+
+  // Milestone targets table
+  html += `<div style="margin-top:12px"><div style="font-size:.82rem;font-weight:700;color:#fbbf24;margin-bottom:6px">マイルストーン目標（コア定例）</div>
+    <table class="media"><thead><tr><th>時期</th><th>稼働目標</th><th>純増/月</th><th>粗利目標</th><th>人件費目安</th><th>労働分配率</th></tr></thead><tbody>`;
+  milestones.forEach(ms=>{
+    html += `<tr><td>${ms.label}</td><td class="num" style="font-weight:700;color:#6366f1">${ms.active}名</td><td class="num">+${ms.netPerMonth}/月</td><td class="num" style="color:#34d399">${yen(ms.gross)}円</td><td class="num">${yen(ms.labor)}円</td><td class="num" style="color:${ms.ratio<=50?'#34d399':'#fbbf24'}">${ms.ratio}%</td></tr>`;
+  });
+  html += `</tbody></table></div></div></div>`;
+
+  // ===== Section 2: 人事部KPI実績（コア定例ベース） =====
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#38bdf8"></span>Section 2: 人事部KPI実績（コア定例ベース）</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">人事部の月次デリバリー実績。営業開始30名/月が目標。体制: スカウト部隊 前田さん1名+サブ要員1名</p>`;
+
+  // HR monthly delivery
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;color:#38bdf8">月次デリバリー実績</div>
+    <table class="media"><thead><tr><th>月</th><th>目標</th><th>結果詳細</th><th>営業開始</th><th>判定</th></tr></thead><tbody>
+      <tr><td>2月</td><td>営業開始30名</td><td style="font-size:.75rem">応募220 &rarr; 有効49 &rarr; 面接38 &rarr; 営業開始33名</td><td class="num" style="font-weight:700;color:#34d399">33名</td><td style="color:#34d399;font-weight:700">超過達成</td></tr>
+      <tr><td>3月</td><td>営業開始30名</td><td style="font-size:.75rem">営業開始31名（内勤1名: 坂井さん、案件先: ソルクシーズ・テクノロジスト）</td><td class="num" style="font-weight:700;color:#34d399">31名</td><td style="color:#34d399;font-weight:700">達成</td></tr>
+      <tr><td>4月</td><td>営業開始30名</td><td style="font-size:.75rem;color:#64748b">営業開始30名・稼働管理に注力（当月退場0名）</td><td class="num" style="color:#94a3b8">-</td><td style="color:#94a3b8">進行中</td></tr>
+    </tbody></table>
+  </div>`;
+
+  // Funnel trend
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;color:#a78bfa">採用ファネル推移（応募スコア 12-2月）</div>
+    <table class="media"><thead><tr><th>月</th><th>応募</th><th>有効応募</th><th>面接</th><th>営業開始</th><th>入社</th><th>成約</th><th>面接&rarr;営業開始率</th></tr></thead><tbody>`;
+  funnelData.forEach(fd=>{
+    const intToSales = fd.interview>0 ? Math.round(fd.salesStart/fd.interview*100) : 0;
+    html += `<tr><td>${fd.m}</td><td class="num">${fd.apply}</td><td class="num">${fd.valid}</td><td class="num">${fd.interview}</td><td class="num" style="font-weight:700">${fd.salesStart}</td><td class="num">${fd.hire}</td><td class="num" style="color:${fd.deal>=5?'#34d399':'#f87171'};font-weight:700">${fd.deal}</td><td class="num" style="color:#a78bfa">${intToSales}%</td></tr>`;
+  });
+  html += `</tbody></table>
+    <div class="insight insight-good" style="margin-top:10px"><strong>人事部は月25名以上の目標を毎月超過達成中。</strong>面接実施&rarr;案件紹介率: 12月48% &rarr; 1月88% &rarr; 2月73%と大幅改善。目標80%に対し安定的に高水準。</div>
+  </div></div>`;
+
+  // ===== Section 3: CPA目標シミュレーション（コア定例方針ベース） =====
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#fbbf24"></span>Section 3: CPA目標シミュレーション（コア定例方針ベース）</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">コア定例方針: 「単月媒体費160万で9名の成約を狙う」「営業が2名以上成約できればCPA20万台が見える」</p>`;
+
+  // Current vs Target
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+    <div style="background:#1a0f05;border:1px solid #78350f;border-radius:10px;padding:16px">
+      <div style="font-size:.72rem;color:#fbbf24;margin-bottom:4px">現状 (直近3ヶ月平均)</div>
+      <div style="font-size:1.1rem;font-weight:800;color:#f87171;margin-bottom:4px">CPA 53万円</div>
+      <div style="font-size:.78rem;color:#94a3b8">媒体費 ~194万/月</div>
+      <div style="font-size:.78rem;color:#94a3b8">成約 3.7件/月 平均</div>
+      <div style="font-size:.78rem;color:#94a3b8">194万 / 3.7件 = 52.4万</div>
+    </div>
+    <div style="background:#021a0a;border:1px solid #064e3b;border-radius:10px;padding:16px">
+      <div style="font-size:.72rem;color:#34d399;margin-bottom:4px">目標 (コア定例)</div>
+      <div style="font-size:1.1rem;font-weight:800;color:#34d399;margin-bottom:4px">CPA 17.8万円</div>
+      <div style="font-size:.78rem;color:#94a3b8">媒体費 160万/月 (次期契約: 149.5万)</div>
+      <div style="font-size:.78rem;color:#94a3b8">成約 9件/月 目標</div>
+      <div style="font-size:.78rem;color:#94a3b8">160万 / 9件 = 17.8万</div>
+    </div>
+  </div>`;
+
+  // Gap analysis
+  html += `<div class="insight insight-warn" style="margin-bottom:14px"><strong>ギャップ: 成約数を3.7件/月 &rarr; 9件/月 = 2.4倍にする必要あり。</strong> 人事部は既に30+名/月を営業に供給中。営業の成約率(営業開始&rarr;成約)を現在の~10%から30%に改善すれば: 30名 x 30% = 9件で達成。</div>`;
+
+  // Interactive sliders
+  html += `<div style="background:#0f172a;border-radius:10px;padding:16px;margin-bottom:12px">
+    <div style="font-size:.85rem;font-weight:700;margin-bottom:12px;color:#fbbf24">インタラクティブ CPA シミュレーター</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px">
-      <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px">
-        <div style="font-size:.78rem;color:#94a3b8;margin-bottom:6px">採用目標人数</div>
-        <div class="sim-row"><input type="range" class="sim-slider" id="spl_target" min="1" max="100" value="${defTarget}" oninput="updateSimPL()">
-        <span style="font-size:1.1rem;font-weight:800;color:#6366f1;min-width:50px;text-align:right" id="spl_target_v">${defTarget}名</span></div>
+      <div style="background:#0a0e1a;border-radius:8px;padding:12px">
+        <div style="font-size:.75rem;color:#94a3b8;margin-bottom:4px">月間媒体費</div>
+        <div class="sim-row"><input type="range" class="sim-slider" id="spl_media" min="800000" max="2500000" step="10000" value="1600000" oninput="updateSimPL()">
+        <span style="font-size:1rem;font-weight:800;color:#fbbf24;min-width:70px;text-align:right" id="spl_media_v">160.0万</span></div>
       </div>
-      <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px">
-        <div style="font-size:.78rem;color:#94a3b8;margin-bottom:6px">目標CPA（1名あたり採用単価）</div>
-        <div class="sim-row"><input type="range" class="sim-slider" id="spl_cpa" min="50000" max="3000000" step="10000" value="${defCPA}" oninput="updateSimPL()">
-        <span style="font-size:1.1rem;font-weight:800;color:#f59e0b;min-width:80px;text-align:right" id="spl_cpa_v">${yen(defCPA)}円</span></div>
+      <div style="background:#0a0e1a;border-radius:8px;padding:12px">
+        <div style="font-size:.75rem;color:#94a3b8;margin-bottom:4px">営業開始&rarr;成約率 (現状~10%)</div>
+        <div class="sim-row"><input type="range" class="sim-slider" id="spl_conv" min="1" max="80" value="10" oninput="updateSimPL()">
+        <span style="font-size:1rem;font-weight:800;color:#f87171;min-width:50px;text-align:right" id="spl_conv_v">10%</span></div>
       </div>
-    </div>
-    <div style="font-size:.82rem;color:#94a3b8;margin-bottom:8px">現在のファネル転換率（実績ベース / 調整可能）:</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:16px">
-      <div style="background:#0a0e1a;border-radius:8px;padding:10px">
-        <div style="font-size:.72rem;color:#64748b">応募→有効応募率</div>
-        <div class="sim-row"><input type="range" class="sim-slider" id="spl_r1" min="1" max="100" value="${defR1}" oninput="updateSimPL()">
-        <span style="font-size:.9rem;font-weight:700;color:#38bdf8;min-width:40px;text-align:right" id="spl_r1_v">${defR1}%</span></div>
-      </div>
-      <div style="background:#0a0e1a;border-radius:8px;padding:10px">
-        <div style="font-size:.72rem;color:#64748b">有効応募→面接率</div>
-        <div class="sim-row"><input type="range" class="sim-slider" id="spl_r2" min="1" max="100" value="${defR2}" oninput="updateSimPL()">
-        <span style="font-size:.9rem;font-weight:700;color:#818cf8;min-width:40px;text-align:right" id="spl_r2_v">${defR2}%</span></div>
-      </div>
-      <div style="background:#0a0e1a;border-radius:8px;padding:10px">
-        <div style="font-size:.72rem;color:#64748b">面接→営業開始率</div>
-        <div class="sim-row"><input type="range" class="sim-slider" id="spl_r3" min="1" max="100" value="${defR3}" oninput="updateSimPL()">
-        <span style="font-size:.9rem;font-weight:700;color:#fbbf24;min-width:40px;text-align:right" id="spl_r3_v">${defR3}%</span></div>
-      </div>
-      <div style="background:#0a0e1a;border-radius:8px;padding:10px">
-        <div style="font-size:.72rem;color:#64748b">営業開始→入社率</div>
-        <div class="sim-row"><input type="range" class="sim-slider" id="spl_r4" min="1" max="100" value="${defR4}" oninput="updateSimPL()">
-        <span style="font-size:.9rem;font-weight:700;color:#fb923c;min-width:40px;text-align:right" id="spl_r4_v">${defR4}%</span></div>
+      <div style="background:#0a0e1a;border-radius:8px;padding:12px">
+        <div style="font-size:.75rem;color:#94a3b8;margin-bottom:4px">月間営業開始数 (現状30名)</div>
+        <div class="sim-row"><input type="range" class="sim-slider" id="spl_supply" min="10" max="60" value="30" oninput="updateSimPL()">
+        <span style="font-size:1rem;font-weight:800;color:#38bdf8;min-width:50px;text-align:right" id="spl_supply_v">30名</span></div>
       </div>
     </div>
-    <div id="spl_calc" style="margin-top:8px"></div>
+    <div id="spl_cpa_result"></div>
   </div>`;
 
-  // ===== Section 2: 現状の課題 =====
-  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#f87171"></span>Section 2: 現状の課題</div>
-    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">実績データから見えるボトルネックを定量的に分析します。</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px">
-      <div style="background:#1a0505;border:1px solid #7f1d1d;border-radius:10px;padding:16px">
-        <div style="font-size:.72rem;color:#f87171;margin-bottom:4px">最大のボトルネック</div>
-        <div style="font-size:1.1rem;font-weight:800;color:#f87171;margin-bottom:6px">営業開始→入社: ${defR4}%</div>
-        <div style="font-size:.8rem;color:#fca5a5">実績: ${totSalesStart}名が営業開始 → 成約${totDeal}件 → ${totHire}名入社（${monthsData}ヶ月間）</div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-top:6px">営業開始=営業が案件提案を開始した段階。ここから「クライアント提案→面談→成約→入社」のプロセスがある。<strong style="color:#fca5a5">営業キャパ・案件ストック・提案スピード</strong>が律速。採用だけでは解決できない営業側のボトルネック。</div>
-      </div>
-      <div style="background:#1a0f05;border:1px solid #78350f;border-radius:10px;padding:16px">
-        <div style="font-size:.72rem;color:#fbbf24;margin-bottom:4px">CPA実績（${monthsData}ヶ月, 月額${yen(MONTHLY_MEDIA)}円）</div>
-        <div style="font-size:1rem;font-weight:800;color:#fbbf24;margin-bottom:4px">入社CPA: ${yen(actualCPA_hire)}円 <span style="font-size:.75rem;color:#fcd34d">（${totCost>0?yen(totCost):'-'}円÷${totHire}名）</span></div>
-        <div style="font-size:1rem;font-weight:800;color:#fb923c;margin-bottom:4px">成約CPA: ${yen(actualCPA_deal)}円 <span style="font-size:.75rem;color:#fed7aa">（${yen(totCost)}円÷${totDeal}件）</span></div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-top:6px">目標CPA20万 vs 成約CPA${yen(actualCPA_deal)}円 → <strong style="color:#fbbf24">あと${Math.round((actualCPA_deal-200000)/10000)}万円の改善が必要</strong></div>
-        <div style="font-size:.72rem;color:#475569;margin-top:4px">※SESでは成約（案件参画）=売上発生のため、成約CPAを重視</div>
-      </div>
-      <div style="background:#0c1425;border:1px solid #1e3a5f;border-radius:10px;padding:16px">
-        <div style="font-size:.72rem;color:#7dd3fc;margin-bottom:4px">有効応募率</div>
-        <div style="font-size:1.1rem;font-weight:800;color:#7dd3fc;margin-bottom:6px">${defR1}%</div>
-        <div style="font-size:.8rem;color:#bae6fd">応募${totApply}件中、有効応募は${totValid}件</div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-top:6px">約${100-defR1}%の応募がスクリーニングで脱落。ターゲティング精度の改善余地あり。</div>
-      </div>
+  // Media cost breakdown
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <div style="font-size:.82rem;font-weight:700;margin-bottom:8px;color:#94a3b8">媒体費内訳（月額）</div>
+    <table class="media"><thead><tr><th>媒体</th><th>現行契約</th><th>次期契約</th></tr></thead><tbody>`;
+  mediaCosts.forEach(mc=>{
+    html += `<tr><td>${mc.name}</td><td class="num">${yen(mc.cost)}円</td><td class="num" style="color:${mc.newCost&&mc.newCost<mc.cost?'#34d399':'#94a3b8'}">${mc.newCost?yen(mc.newCost)+'円':'-'}</td></tr>`;
+  });
+  html += `<tr style="border-top:2px solid #334155;font-weight:700"><td>合計</td><td class="num">~204万円</td><td class="num" style="color:#34d399">~149.5万円</td></tr>`;
+  html += `</tbody></table></div></div>`;
+
+  // ===== Section 4: 営業部の消化率分析 =====
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#f87171"></span>Section 4: 営業部の消化率分析（最重要ボトルネック）</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">12月に1名で6件決められていた営業力が、3名体制で月2件に低下。営業の消化率が全体のボトルネック。</p>`;
+
+  // Sales conversion table
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <table class="media"><thead><tr><th>時期</th><th>営業人数</th><th>受取数</th><th>成約</th><th>消化率</th><th>1人あたり成約</th></tr></thead><tbody>`;
+  const salesData = [
+    {m:'12月',people:1,received:10,deal:6},
+    {m:'1月',people:2,received:21,deal:3},
+    {m:'2月',people:3,received:27,deal:2},
+    {m:'3月',people:3,received:31,deal:null}
+  ];
+  salesData.forEach(sd=>{
+    const rate = sd.deal!==null ? Math.round(sd.deal/sd.received*100)+'%' : '?';
+    const perPerson = sd.deal!==null ? (sd.deal/sd.people).toFixed(1)+'件' : '?';
+    const rateColor = sd.deal===null?'#94a3b8': sd.deal/sd.received>=0.3?'#34d399':'#f87171';
+    html += `<tr><td>${sd.m}</td><td class="num">${sd.people}名</td><td class="num">${sd.received}</td><td class="num" style="color:${sd.deal!==null?(sd.deal>=5?'#34d399':'#f87171'):'#94a3b8'};font-weight:700">${sd.deal!==null?sd.deal:'?'}</td><td class="num" style="color:${rateColor};font-weight:700">${rate}</td><td class="num">${perPerson}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  // Visual insight
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div style="background:#1a0505;border:1px solid #7f1d1d;border-radius:10px;padding:16px">
+      <div style="font-size:.72rem;color:#f87171;margin-bottom:4px">問題の可視化</div>
+      <div style="font-size:.85rem;font-weight:700;color:#fca5a5;margin-bottom:8px">12月: 1名体制で消化率60%<br>1-2月: 3名体制で消化率7-14%</div>
+      <div style="font-size:.78rem;color:#94a3b8">新規営業メンバーの立ち上がりに時間がかかっている。コア定例でも「2026年6月までをセールス育成期間」と位置づけ。</div>
     </div>
-    <div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:10px">
-      <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;color:#f87171">ファネル全体像（実績${monthsData}ヶ月合計）</div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.82rem">
-        <div style="background:#38bdf8;color:#000;padding:6px 12px;border-radius:6px;font-weight:700">応募 ${totApply}</div>
-        <span style="color:#475569">→${defR1}%→</span>
-        <div style="background:#818cf8;color:#000;padding:6px 12px;border-radius:6px;font-weight:700">有効 ${totValid}</div>
-        <span style="color:#475569">→${defR2}%→</span>
-        <div style="background:#a78bfa;color:#000;padding:6px 12px;border-radius:6px;font-weight:700">面接 ${totInterview}</div>
-        <span style="color:#475569">→${defR3}%→</span>
-        <div style="background:#fbbf24;color:#000;padding:6px 12px;border-radius:6px;font-weight:700">営業開始 ${totSalesStart}</div>
-        <span style="color:#f87171;font-weight:700">→${defR4}%→</span>
-        <div style="background:#f87171;color:#000;padding:6px 12px;border-radius:6px;font-weight:700">入社 ${totHire}</div>
-      </div>
+    <div style="background:#021a0a;border:1px solid #064e3b;border-radius:10px;padding:16px">
+      <div style="font-size:.72rem;color:#34d399;margin-bottom:4px">12月ペースに戻した場合のシミュレーション</div>
+      <div style="font-size:.82rem;color:#6ee7b7;margin-bottom:4px"><strong>3名 x 6件/人 = 18件/月</strong></div>
+      <div style="font-size:.78rem;color:#94a3b8;margin-bottom:4px">CPA = 160万 / 18件 = <strong style="color:#34d399">8.9万円</strong> (目標大幅超過)</div>
+      <div style="font-size:.82rem;color:#6ee7b7;margin-bottom:4px"><strong>半分のペースでも: 3名 x 3件/人 = 9件/月</strong></div>
+      <div style="font-size:.78rem;color:#94a3b8">CPA = 160万 / 9件 = <strong style="color:#34d399">17.8万円</strong> (目標達成)</div>
     </div>
   </div>`;
 
-  // ===== Section 3: 改善シナリオシミュレーション =====
-  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#a78bfa"></span>Section 3: 改善シナリオシミュレーション</div>
-    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">3つのシナリオで、採用コスト・必要予算・達成可能性を比較します。</p>
-    <div id="spl_scenarios"></div>
-  </div>`;
+  html += `<div class="insight insight-warn"><strong>KEY INSIGHT:</strong> 「営業が2名以上成約できればCPA20万台が見える」(コア定例)。人事部は既に十分な供給(30+名/月)を実現済み。営業の成約率が10%→30%に改善すれば、全てのKPIが達成可能。</div>`;
+  html += `</div>`;
 
-  // ===== Section 4: PL Impact (ROI) =====
-  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#22c55e"></span>Section 4: PL Impact (ROI)</div>
-    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">採用投資に対するリターンを月次P/Lベースで試算します。</p>
-    <div id="spl_roi"></div>
-  </div>`;
+  // ===== Section 5: PL Impact (updated with real milestones) =====
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#22c55e"></span>Section 5: PL Impact（実数ベース）</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">コア定例の計画数値に基づく売上・粗利の推移。エンジニア1名: 売上60万/月、粗利率17%。</p>`;
 
-  // ===== Section 5: 具体的アクション =====
-  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#fbbf24"></span>Section 5: 具体的アクション（優先度順）</div>
-    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">採用PLを改善するための具体的な施策を優先度順に整理します。</p>`;
+  // Milestone financial trajectory
+  const plMilestones = [
+    {label:'現在 (41名)',active:41,rev:41*600000,gross:Math.round(41*600000*0.17),labor:null,note:'2026/03実績'},
+    {label:'4月目標 (55名)',active:55,rev:55*600000,gross:Math.round(55*600000*0.17),labor:3000000,note:'計画ベース'},
+    {label:'8月目標 (105名)',active:105,rev:105*600000,gross:Math.round(105*600000*0.17),labor:4250000,note:''},
+    {label:'12月目標 (170名)',active:170,rev:170*600000,gross:Math.round(170*600000*0.17),labor:5150000,note:''}
+  ];
+
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <table class="media"><thead><tr><th>マイルストーン</th><th>稼働</th><th>月間売上</th><th>月間粗利</th><th>人件費目安</th><th>労働分配率</th></tr></thead><tbody>`;
+  plMilestones.forEach(pm=>{
+    const ratio = pm.labor ? Math.round(pm.labor/pm.gross*100) : '-';
+    const ratioColor = ratio==='-'?'#94a3b8': ratio<=50?'#34d399':'#fbbf24';
+    html += `<tr><td>${pm.label}</td><td class="num" style="font-weight:700;color:#6366f1">${pm.active}名</td><td class="num">${yen(pm.rev)}円</td><td class="num" style="color:#34d399;font-weight:700">${yen(pm.gross)}円</td><td class="num">${pm.labor?yen(pm.labor)+'円':'-'}</td><td class="num" style="color:${ratioColor}">${ratio==='-'?ratio:ratio+'%'}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  // Visual bar chart of PL growth
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <div style="font-size:.82rem;font-weight:700;margin-bottom:10px;color:#22c55e">月間粗利成長ビジュアル</div>
+    <div style="display:flex;gap:8px;align-items:flex-end;height:140px">`;
+  const maxGross = 170*600000*0.17;
+  plMilestones.forEach(pm=>{
+    const h = Math.max(pm.gross/maxGross*120,8);
+    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
+      <div style="font-size:.65rem;font-weight:700;color:#34d399;margin-bottom:2px">${yen(pm.gross)}円</div>
+      <div style="width:60%;height:${h}px;background:linear-gradient(180deg,#22c55e,#064e3b);border-radius:6px 6px 0 0"></div>
+      <div style="font-size:.6rem;color:#94a3b8;margin-top:4px;text-align:center">${pm.label.split('(')[0]}</div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Cost structure comparison
+  html += `<div style="background:#0f172a;border-radius:10px;padding:14px;margin-bottom:12px">
+    <div style="font-size:.82rem;font-weight:700;margin-bottom:8px;color:#a78bfa">内勤体制コスト比較</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:#0a0e1a;border-radius:8px;padding:12px">
+        <div style="font-size:.75rem;color:#f87171;margin-bottom:6px">前体制 (~12月)</div>
+        <div style="font-size:.78rem;color:#cbd5e1">COO: 30万</div>
+        <div style="font-size:.78rem;color:#cbd5e1">採用担当: 30万</div>
+        <div style="font-size:.78rem;color:#cbd5e1">個人事業主x3: 15万x3=45万</div>
+        <div style="font-size:.85rem;font-weight:700;color:#f87171;margin-top:6px;border-top:1px solid #1e293b;padding-top:6px">合計: 105万/月</div>
+      </div>
+      <div style="background:#0a0e1a;border-radius:8px;padding:12px">
+        <div style="font-size:.75rem;color:#34d399;margin-bottom:6px">新体制 (1月~)</div>
+        <div style="font-size:.78rem;color:#cbd5e1">責任者: 50万</div>
+        <div style="font-size:.78rem;color:#cbd5e1">個人事業主x1: 6.5万</div>
+        <div style="font-size:.85rem;font-weight:700;color:#34d399;margin-top:6px;border-top:1px solid #1e293b;padding-top:6px">合計: 56.5万/月 (-46%)</div>
+      </div>
+    </div>
+  </div></div>`;
+
+  // ===== Section 6: 具体的アクション（コア定例方針に基づく） =====
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#e879f9"></span>Section 6: 具体的アクション（コア定例方針に基づく）</div>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:14px">コア定例で議論された戦略方針と具体的なアクション。</p>`;
 
   const actions = [
     {
-      title: '1. 営業の案件マッチング力強化（最重要）',
+      title: '1. 営業部: セールス育成期間の活用 (最重要)',
       color: '#f87171',
       impact: 'high',
-      desc: '営業開始→入社が4%の最大要因は「営業が案件を決めきれない」こと。54名が営業開始→成約11件→入社2名。営業キャパ・提案スピード・案件ストックの3点がボトルネック。',
+      quote: '「2026年6月までをセールス育成期間とし、粗利の40-45%で人員確保と育成。7月から一気に新規獲得へ動き出す」',
       items: [
-        '【営業キャパの確保】現営業1-2名で月18名の案件提案は物理的に限界。営業増員 or 案件提案の仕組み化（テンプレ提案書+一括送信）が急務',
-        '【提案スピード】営業開始→クライアント提案を48時間以内にルール化。候補者は並行で他社も受けているため、スピード=勝率',
-        '【案件ストックの常時確保】営業開始時に即提案できる案件プールを30件以上確保。「案件待ち」による候補者離脱が最大のロス',
-        '【スキルシート品質】クライアント面談に進めるかはスキルシートで8割決まる。面接と並行でスキルシート完成→営業が即提案できる状態を作る',
-        '【クライアント面談通過率UP】候補者に面談前の想定QA・ポイントを事前共有。「知ってれば答えられた」で落ちるのを防ぐ',
-        '【取引先の新規開拓】案件マッチングの選択肢を増やすには取引先の数がものを言う。営業の新規開拓KPIも並行で設定'
+        '4-6月: 育成期間として粗利40-45%を人件費に投資。営業メンバー3名の成約力を12月水準(1人6件/月)まで引き上げ',
+        '1人あたり成約数を0.7件→3件/月に引き上げれば、CPA20万達成ライン',
+        'ボトルネック: 「営業が2名以上成約できればCPA20万台が見える。そこに対するボトルネックを会話したい」(コア定例)',
+        '7月以降: 3名x6件=18件/月ペースで新規獲得を加速'
       ]
     },
     {
-      title: '2. 候補者の離脱防止（営業開始〜入社の間）',
-      color: '#fb923c',
-      impact: 'high',
-      desc: '営業開始しても案件が決まるまでに時間がかかると、候補者は他社に流れる。待機期間のマネジメントが入社率を左右する。',
-      items: [
-        '【期待値の事前設定】面接時に「案件決定まで平均○週間」を伝え、途中辞退を防止',
-        '【週次フォロー】営業開始後、週1回の進捗共有を候補者に実施（「今○件提案中です」）。放置感を絶対に出さない',
-        '【並行提案の徹底】1候補者に対し最低3件以上の案件を同時提案。1件ずつ順番に提案すると時間がかかりすぎる',
-        '【条件の柔軟調整】候補者の希望条件が厳しい場合、営業と採用で連携して「ここを妥協すればこの案件がある」と具体的に提案',
-        '【辞退理由の収集と改善】営業開始後に辞退した候補者全員にヒアリング。「案件が合わなかった」「他社で決まった」「待ちすぎた」を分類してPDCA',
-        '【社会福祉士の活用】待機中の不安やメンタル面のサポート。他社にない独自価値として候補者に安心感を与える'
-      ]
-    },
-    {
-      title: '3. 採用→営業の連携プロセス整備',
-      color: '#a78bfa',
-      impact: 'high',
-      desc: '採用部と営業部の情報共有が遅れると、すべてが後手に回る。「面接通過の翌日には営業が動いている」状態を作る。',
-      items: [
-        '【面接と営業の同時進行】面接段階から営業チームに候補者情報を共有。面接通過→即日スキルシート完成→翌日案件提案の流れを構築',
-        '【共有テンプレ】Slack/Notionで「候補者カード」を定型化。スキル・希望条件・NG条件・想定単価を1枚にまとめ、営業が即判断できるように',
-        '【週次の採用×営業ミーティング】候補者パイプラインと案件パイプラインを突き合わせ。「この人にはこの案件が合いそう」を事前に擦り合わせる',
-        '【KPIの連動】採用のKPI（営業開始数）と営業のKPI（案件成約数）を連動させ、両部署が同じゴールに向かう仕組みに'
-      ]
-    },
-    {
-      title: '4. 有効応募率の改善',
-      color: '#fbbf24',
-      impact: 'mid',
-      desc: '応募の質を高め、採用チームの工数対効果を最大化する。',
-      items: [
-        'スカウト送信ターゲットの精度UP（経験年数・スキルでフィルタ強化）',
-        '求人原稿の訴求ポイント見直し（競合分析で判明した強みを反映）',
-        '応募フォームに簡易スクリーニング項目を追加（Google Sheets管理データの有効応募基準①〜④を反映）',
-        'フルリモート希望者の対応方針を明確化（実績データでは「フルリモート希望」が辞退の主因の一つ）'
-      ]
-    },
-    {
-      title: '5. 媒体配分の最適化 + 新規チャネル',
+      title: '2. 人事部: CPA20万の持続的実現',
       color: '#38bdf8',
-      impact: 'mid',
-      desc: 'CPA実績ベースで予算を再配分し、同予算でより多くの採用を実現する。',
+      impact: 'high',
+      quote: '「CPA20万で回っている状態。条件ではなくエンジニアとしてのキャリアアップと社内の雰囲気の良さで弊社を選んでもらえる状態に」',
       items: [
-        'CPA実績が良い媒体に予算を集中配分（成約ベースでの媒体別CPA比較）',
-        'HP/Indeed（低コスト）チャネルの強化・SEO対策',
-        'リファラル制度の立ち上げ（CPA実質0円、転換率が最も高いチャネル）',
-        'Wantedly / Green 等のエンジニア特化媒体の追加検討',
-        'SNS / コンテンツ（note, Qiita, X）での認知拡大'
+        '面接実施→案件紹介までの率80%を目標に維持 (現状73-88%で推移)',
+        '単月媒体費160万で9名の成約を狙う (次期契約149.5万でさらに効率化)',
+        '月25名以上の人員供給を安定的に継続 (現状30+名で達成済み)',
+        'スカウト部隊: 前田さん1名+サブ要員1名の体制で量を維持'
+      ]
+    },
+    {
+      title: '3. 総務部: 属人化排除と自動化',
+      color: '#a78bfa',
+      impact: 'mid',
+      quote: '「属人化の徹底排除と自動化」',
+      items: [
+        'バックオフィス業務のマニュアル化・システム化',
+        '稼働管理・入退場管理の自動化で営業の工数を確保',
+        'スケールに耐えうるオペレーション体制の構築'
       ]
     }
   ];
 
   actions.forEach(a=>{
-    const impCls = a.impact==='high'?'impact-high':a.impact==='mid'?'impact-mid':'impact-low';
-    const impLabel = a.impact==='high'?'最重要':a.impact==='mid'?'重要':'推奨';
+    const impCls = a.impact==='high'?'impact-high':'impact-mid';
+    const impLabel = a.impact==='high'?'最重要':'重要';
     html += `<div class="action-card">
       <div class="action-title" style="color:${a.color}">${a.title} <span class="action-impact ${impCls}">${impLabel}</span></div>
-      <div style="font-size:.78rem;color:#94a3b8;margin-bottom:8px">${a.desc}</div>
+      <div style="font-size:.78rem;color:#fbbf24;margin-bottom:8px;padding:8px;background:#1a0f05;border-radius:6px;border-left:3px solid #fbbf24">${a.quote}</div>
       <ul class="action-list">`;
     a.items.forEach(item=>{
       html += `<li>${item}</li>`;
     });
     html += `</ul></div>`;
   });
+
+  // Critical path summary
+  html += `<div style="background:#0f172a;border-radius:10px;padding:16px;margin-top:12px">
+    <div style="font-size:.9rem;font-weight:700;margin-bottom:10px;color:#e879f9">クリティカルパス分析</div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:.82rem">
+      <div style="color:#34d399;font-weight:700">HR供給</div><div>30+名/月をコンスタントに供給 <span style="color:#34d399;font-weight:700">[達成済]</span></div>
+      <div style="color:#f87171;font-weight:700">営業成約</div><div>成約率10% &rarr; 30%への改善が必要 <span style="color:#f87171;font-weight:700">[ブロッカー]</span></div>
+      <div style="color:#fbbf24;font-weight:700">媒体費</div><div>次期契約で204万 &rarr; 149.5万に削減予定 <span style="color:#34d399;font-weight:700">[改善中]</span></div>
+      <div style="color:#a78bfa;font-weight:700">結論</div><div style="font-weight:700">営業の成約率が12月水準に回復すれば、全KPI達成可能。コア定例方針「営業が2名以上成約できればCPA20万台」が全ての鍵。</div>
+    </div>
+  </div>`;
 
   html += `</div>`;
 
@@ -1391,215 +1520,64 @@ function renderSimPL(){
 }
 
 function updateSimPL(){
-  const target = parseInt(document.getElementById('spl_target')?.value)||20;
-  const cpaTgt = parseInt(document.getElementById('spl_cpa')?.value)||200000;
-  const r1 = parseInt(document.getElementById('spl_r1')?.value)||28;
-  const r2 = parseInt(document.getElementById('spl_r2')?.value)||49;
-  const r3 = parseInt(document.getElementById('spl_r3')?.value)||78;
-  const r4 = parseInt(document.getElementById('spl_r4')?.value)||4;
+  const s=id=>document.getElementById(id);
+
+  // Section 3 interactive sliders
+  const media = parseInt(s('spl_media')?.value)||1600000;
+  const conv = parseInt(s('spl_conv')?.value)||10;
+  const supply = parseInt(s('spl_supply')?.value)||30;
 
   // Update display values
-  const s=id=>document.getElementById(id);
-  if(s('spl_target_v')) s('spl_target_v').textContent=target+'名';
-  if(s('spl_cpa_v')) s('spl_cpa_v').textContent=yen(cpaTgt)+'円';
-  if(s('spl_r1_v')) s('spl_r1_v').textContent=r1+'%';
-  if(s('spl_r2_v')) s('spl_r2_v').textContent=r2+'%';
-  if(s('spl_r3_v')) s('spl_r3_v').textContent=r3+'%';
-  if(s('spl_r4_v')) s('spl_r4_v').textContent=r4+'%';
-
-  // Reverse calculate
-  const needSalesStart = Math.ceil(target/(r4/100));
-  const needInterview = Math.ceil(needSalesStart/(r3/100));
-  const needValid = Math.ceil(needInterview/(r2/100));
-  const needApply = Math.ceil(needValid/(r1/100));
-  const totalBudget = target * cpaTgt;
-  const monthlyApply = Math.ceil(needApply/6);
-  const monthlyBudget = Math.round(totalBudget/6);
-
-  // Actual aggregate cost per apply
-  let totApply=0,totCost=0;
-  Object.values(allData).forEach(md=>{
-    mediaList.forEach(m=>{
-      if(!md[m.id]) return;
-      totApply+=(md[m.id].apply||0);
-      totCost+=(md[m.id].cost||0);
-    });
-  });
-  const costPerApply = totApply>0?Math.round(totCost/totApply):10000;
-  const requiredBudgetActual = needApply * costPerApply;
-
-  const calcEl = document.getElementById('spl_calc');
-  if(calcEl){
-    let ch = `<div style="background:#0f172a;border-radius:10px;padding:16px">
-      <div style="font-size:.9rem;font-weight:700;margin-bottom:12px;color:#6366f1">逆算結果</div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.85rem;margin-bottom:12px">
-        <div style="background:#34d399;color:#000;padding:6px 14px;border-radius:6px;font-weight:700">入社 ${target}名</div>
-        <span style="color:#475569">← 必要</span>
-        <div style="background:#fbbf24;color:#000;padding:6px 14px;border-radius:6px;font-weight:700">営業開始 ${needSalesStart.toLocaleString()}名</div>
-        <span style="color:#475569">←</span>
-        <div style="background:#a78bfa;color:#000;padding:6px 14px;border-radius:6px;font-weight:700">面接 ${needInterview.toLocaleString()}名</div>
-        <span style="color:#475569">←</span>
-        <div style="background:#818cf8;color:#000;padding:6px 14px;border-radius:6px;font-weight:700">有効応募 ${needValid.toLocaleString()}名</div>
-        <span style="color:#475569">←</span>
-        <div style="background:#38bdf8;color:#000;padding:6px 14px;border-radius:6px;font-weight:700">応募 ${needApply.toLocaleString()}名</div>
-      </div>
-      <div class="sim-result">
-        <div class="sim-box"><div class="sim-val" style="color:#6366f1">${target}名</div><div class="sim-label">採用目標</div></div>
-        <div class="sim-box"><div class="sim-val" style="color:#38bdf8">${needApply.toLocaleString()}</div><div class="sim-label">必要応募数（総計）</div></div>
-        <div class="sim-box"><div class="sim-val" style="color:#a78bfa">${monthlyApply.toLocaleString()}</div><div class="sim-label">月間必要応募数</div></div>
-        <div class="sim-box"><div class="sim-val" style="color:#f59e0b">${yen(totalBudget)}円</div><div class="sim-label">目標CPA時の総予算</div></div>
-        <div class="sim-box"><div class="sim-val" style="color:#fb923c">${yen(monthlyBudget)}円</div><div class="sim-label">月間媒体予算</div></div>
-        <div class="sim-box"><div class="sim-val" style="color:#f87171">${yen(requiredBudgetActual)}円</div><div class="sim-label">実績単価での必要総予算</div></div>
-      </div>`;
-
-    if(requiredBudgetActual > totalBudget * 3){
-      ch += `<div class="insight insight-warn" style="margin-top:12px"><strong>現状の転換率では、目標CPA ${yen(cpaTgt)}円での${target}名採用は困難です。</strong> 実績ベースの応募単価(${yen(costPerApply)}円/件)で${needApply.toLocaleString()}件の応募を集めるには ${yen(requiredBudgetActual)}円が必要で、目標予算の${(requiredBudgetActual/totalBudget).toFixed(1)}倍です。転換率の改善が不可欠です。</div>`;
-    } else {
-      ch += `<div class="insight insight-good" style="margin-top:12px"><strong>この転換率であれば、目標は達成可能な範囲です。</strong></div>`;
-    }
-    ch += `</div>`;
-    calcEl.innerHTML = ch;
+  if(s('spl_media_v')) s('spl_media_v').textContent=(media/10000).toFixed(1)+'万';
+  if(s('spl_conv_v')){
+    s('spl_conv_v').textContent=conv+'%';
+    s('spl_conv_v').style.color = conv>=30?'#34d399':conv>=20?'#fbbf24':'#f87171';
   }
+  if(s('spl_supply_v')) s('spl_supply_v').textContent=supply+'名';
 
-  // ===== Scenarios =====
-  const scenEl = document.getElementById('spl_scenarios');
-  if(scenEl){
-    const scenarios = [
-      {
-        name: 'Scenario A: 現状維持',
-        color: '#f87171',
-        icon: '&#10060;',
-        r1: r1, r2: r2, r3: r3, r4: r4,
-        desc: '現在の転換率を維持した場合。改善施策なし。',
-        budgetMult: 1
-      },
-      {
-        name: 'Scenario B: 歩留まり改善',
-        color: '#fbbf24',
-        icon: '&#9889;',
-        r1: Math.min(r1+12,60), r2: r2, r3: r3, r4: Math.min(Math.max(r4*7,30),40),
-        desc: '営業開始→入社を30%に改善 + 有効応募率を'+Math.min(r1+12,60)+'%に引き上げ。',
-        budgetMult: 1
-      },
-      {
-        name: 'Scenario C: 歩留まり改善+媒体最適化',
-        color: '#34d399',
-        icon: '&#127775;',
-        r1: Math.min(r1+12,60), r2: Math.min(r2+10,65), r3: r3, r4: Math.min(Math.max(r4*7,30),40),
-        desc: '歩留まり改善 + 媒体最適化 + リファラル追加。CPA200K達成を目指す。',
-        budgetMult: 0.7
-      }
-    ];
+  // Calculate
+  const deals = Math.round(supply * conv / 100);
+  const cpa = deals>0 ? Math.round(media/deals) : 9999999;
+  const cpaOk = cpa <= 200000;
 
-    let sh = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">`;
-    scenarios.forEach(sc=>{
-      const scSalesStart = Math.ceil(target/(sc.r4/100));
-      const scInterview = Math.ceil(scSalesStart/(sc.r3/100));
-      const scValid = Math.ceil(scInterview/(sc.r2/100));
-      const scApply = Math.ceil(scValid/(sc.r1/100));
-      const scBudget = Math.round(scApply * costPerApply * sc.budgetMult);
-      const scCPA = target>0?Math.round(scBudget/target):0;
-      const scMonthly = Math.ceil(scApply/6);
-      const scMonthBudget = Math.round(scBudget/6);
-      const feasible = scCPA <= cpaTgt * 1.5;
-      const timeline = Math.ceil(scApply / Math.max(monthlyApply,1));
-
-      sh += `<div style="background:#0f172a;border:2px solid ${sc.color};border-radius:12px;padding:16px">
-        <div style="font-size:.92rem;font-weight:700;color:${sc.color};margin-bottom:6px">${sc.icon} ${sc.name}</div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-bottom:12px">${sc.desc}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
-          <div style="text-align:center;background:#0a0e1a;padding:8px;border-radius:6px">
-            <div style="font-size:.65rem;color:#64748b">応募→有効応募</div>
-            <div style="font-size:.95rem;font-weight:800;color:${sc.r1>r1?'#34d399':'#e2e8f0'}">${sc.r1}%</div>
-          </div>
-          <div style="text-align:center;background:#0a0e1a;padding:8px;border-radius:6px">
-            <div style="font-size:.65rem;color:#64748b">有効応募→面接</div>
-            <div style="font-size:.95rem;font-weight:800;color:${sc.r2>r2?'#34d399':'#e2e8f0'}">${sc.r2}%</div>
-          </div>
-          <div style="text-align:center;background:#0a0e1a;padding:8px;border-radius:6px">
-            <div style="font-size:.65rem;color:#64748b">面接→営業開始</div>
-            <div style="font-size:.95rem;font-weight:800;color:#e2e8f0">${sc.r3}%</div>
-          </div>
-          <div style="text-align:center;background:#0a0e1a;padding:8px;border-radius:6px">
-            <div style="font-size:.65rem;color:#64748b">営業開始→入社</div>
-            <div style="font-size:.95rem;font-weight:800;color:${sc.r4>r4?'#34d399':'#f87171'}">${sc.r4}%</div>
-          </div>
-        </div>
-        <div style="border-top:1px solid #1e293b;padding-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:.78rem">
-          <div>必要応募数: <strong>${scApply.toLocaleString()}件</strong></div>
-          <div>月間応募: <strong>${scMonthly.toLocaleString()}件/月</strong></div>
-          <div>総予算: <strong style="color:${sc.color}">${yen(scBudget)}円</strong></div>
-          <div>月間予算: <strong>${yen(scMonthBudget)}円/月</strong></div>
-          <div>予測CPA: <strong style="color:${scCPA<=cpaTgt?'#34d399':'#f87171'}">${yen(scCPA)}円</strong></div>
-          <div>達成期間: <strong>約${Math.max(timeline,1)}ヶ月</strong></div>
-        </div>
-        <div style="margin-top:8px;padding:6px 10px;border-radius:6px;font-size:.78rem;font-weight:600;text-align:center;background:${feasible?'#064e3b':'#450a0a'};color:${feasible?'#34d399':'#f87171'}">${feasible?'達成可能':'達成困難 - さらなる改善が必要'}</div>
-      </div>`;
-    });
-    sh += `</div>`;
-    scenEl.innerHTML = sh;
-  }
-
-  // ===== ROI =====
-  const roiEl = document.getElementById('spl_roi');
-  if(roiEl){
-    const revPerEng = ENG_REVENUE;     // 600,000
-    const marginRate = ENG_MARGIN_RATE; // 0.17
-    const marginPerEng = ENG_MARGIN;    // ~102,000
-    const totalRecruit = target * cpaTgt;
-    const monthlyRevAdd = target * revPerEng;
-    const monthlyMarginAdd = target * marginPerEng;
-    const payback = monthlyMarginAdd>0?Math.ceil(totalRecruit/monthlyMarginAdd):99;
-
-    let rh = `<div class="sim-result" style="margin-bottom:16px">
-      <div class="sim-box"><div class="sim-val" style="color:#6366f1">${target}名</div><div class="sim-label">追加エンジニア</div></div>
-      <div class="sim-box"><div class="sim-val" style="color:#38bdf8">${yen(monthlyRevAdd)}円</div><div class="sim-label">追加月間売上</div></div>
-      <div class="sim-box"><div class="sim-val" style="color:#34d399">${yen(monthlyMarginAdd)}円</div><div class="sim-label">追加月間粗利</div></div>
-      <div class="sim-box"><div class="sim-val" style="color:#f59e0b">${yen(totalRecruit)}円</div><div class="sim-label">採用総コスト</div></div>
-      <div class="sim-box"><div class="sim-val" style="color:#e879f9">${payback}ヶ月</div><div class="sim-label">投資回収期間</div></div>
+  const resultEl = s('spl_cpa_result');
+  if(resultEl){
+    let rh = `<div class="sim-result" style="margin-bottom:12px">
+      <div class="sim-box"><div class="sim-val" style="color:#38bdf8">${supply}名</div><div class="sim-label">営業開始/月</div></div>
+      <div class="sim-box"><div class="sim-val" style="color:${conv>=30?'#34d399':'#f87171'}">${conv}%</div><div class="sim-label">成約率</div></div>
+      <div class="sim-box"><div class="sim-val" style="color:${deals>=9?'#34d399':'#f87171'}">${deals}件</div><div class="sim-label">月間成約数</div></div>
+      <div class="sim-box"><div class="sim-val" style="color:${cpaOk?'#34d399':'#f87171'}">${cpa<9999999?yen(cpa)+'円':'--'}</div><div class="sim-label">CPA</div></div>
     </div>`;
 
-    // 12-month cumulative profit chart
-    rh += `<div style="font-size:.85rem;font-weight:700;margin-bottom:8px;color:#22c55e">12ヶ月間累計利益シミュレーション</div>
-      <div style="font-size:.75rem;color:#64748b;margin-bottom:10px">前提: エンジニア1名あたり月間売上${yen(revPerEng)}円、粗利率${(marginRate*100).toFixed(0)}%（粗利${yen(marginPerEng)}円/名/月）</div>`;
-
-    rh += `<div style="display:flex;gap:2px;align-items:flex-end;height:160px;padding-bottom:24px;position:relative">`;
-    const monthLabels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-    let cumProfit = -totalRecruit;
-    const profits = [];
-    for(let i=0;i<12;i++){
-      cumProfit += monthlyMarginAdd;
-      profits.push(cumProfit);
+    if(cpaOk){
+      rh += `<div class="insight insight-good"><strong>CPA目標20万円を達成!</strong> 媒体費${(media/10000).toFixed(1)}万円で月${deals}件成約。CPA = ${yen(cpa)}円。年間成約${deals*12}名、年間採用コスト${yen(media*12)}円。</div>`;
+    } else if(deals>0){
+      rh += `<div class="insight insight-warn"><strong>CPA ${yen(cpa)}円 - 目標20万に未達。</strong> 成約率を${Math.ceil(media/(supply*200000)/supply*10000)/100}%以上にするか、媒体費を${yen(deals*200000)}円以下にする必要あり。</div>`;
+    } else {
+      rh += `<div class="insight insight-warn"><strong>成約0件 - CPA算出不可。</strong> 成約率を引き上げてください。</div>`;
     }
-    const maxAbs = Math.max(...profits.map(p=>Math.abs(p)),1);
 
-    profits.forEach((p,i)=>{
-      const isPositive = p >= 0;
-      const h = Math.max(Math.abs(p)/maxAbs*120, 4);
-      rh += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end">
-        <div style="font-size:.6rem;font-weight:700;color:${isPositive?'#34d399':'#f87171'};margin-bottom:2px">${yen(Math.round(p))}円</div>
-        <div style="width:70%;height:${h}px;background:${isPositive?'#22c55e':'#ef4444'};border-radius:4px 4px 0 0;opacity:${isPositive?1:0.6}"></div>
-        <div style="font-size:.55rem;color:#64748b;margin-top:4px">${monthLabels[i]}</div>
+    // What-if scenarios
+    rh += `<div style="margin-top:12px;font-size:.82rem;font-weight:700;color:#94a3b8;margin-bottom:6px">参考シナリオ</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">`;
+    const scenarios = [
+      {label:'12月ペース回復',supply:30,conv:60,media:1600000},
+      {label:'半分ペース',supply:30,conv:30,media:1600000},
+      {label:'目標ライン',supply:30,conv:30,media:1495000},
+      {label:'最低ライン',supply:25,conv:20,media:1495000}
+    ];
+    scenarios.forEach(sc=>{
+      const scDeals = Math.round(sc.supply*sc.conv/100);
+      const scCpa = scDeals>0?Math.round(sc.media/scDeals):9999999;
+      rh += `<div style="background:#0a0e1a;border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:.7rem;color:#64748b;margin-bottom:2px">${sc.label}</div>
+        <div style="font-size:.7rem;color:#94a3b8">${sc.supply}名 x ${sc.conv}% = ${scDeals}件</div>
+        <div style="font-size:.9rem;font-weight:800;color:${scCpa<=200000?'#34d399':'#f87171'}">${yen(scCpa)}円</div>
       </div>`;
     });
     rh += `</div>`;
 
-    rh += `<div class="insight insight-good" style="margin-top:10px"><strong>投資回収: ${payback}ヶ月目に黒字転換。</strong> 12ヶ月後の累計利益は <strong>${yen(Math.round(profits[11]))}円</strong>。採用投資${yen(totalRecruit)}円に対し、<strong>ROI ${((profits[11]/totalRecruit)*100).toFixed(0)}%</strong>。</div>`;
-
-    // Additional PL detail
-    rh += `<div style="margin-top:14px;background:#0f172a;border-radius:10px;padding:14px">
-      <div style="font-size:.85rem;font-weight:700;margin-bottom:8px;color:#a78bfa">月次PLインパクト詳細</div>
-      <table class="media"><thead><tr><th>項目</th><th>現状（${CURRENT_ENG}名）</th><th>目標後（${CURRENT_ENG+target}名）</th><th>差分</th></tr></thead><tbody>
-        <tr><td>月間売上</td><td class="num">${yen(CURRENT_ENG*revPerEng)}円</td><td class="num" style="color:#34d399;font-weight:700">${yen((CURRENT_ENG+target)*revPerEng)}円</td><td class="num" style="color:#34d399">+${yen(target*revPerEng)}円</td></tr>
-        <tr><td>月間粗利</td><td class="num">${yen(Math.round(CURRENT_ENG*marginPerEng))}円</td><td class="num" style="color:#34d399;font-weight:700">${yen(Math.round((CURRENT_ENG+target)*marginPerEng))}円</td><td class="num" style="color:#34d399">+${yen(target*marginPerEng)}円</td></tr>
-        <tr><td>内勤人件費</td><td class="num">${yen(INTERNAL_COST)}円</td><td class="num">${yen(INTERNAL_COST)}円</td><td class="num" style="color:#94a3b8">±0</td></tr>
-        <tr><td>融資返済</td><td class="num">${yen(LOAN_PAYMENT)}円</td><td class="num">${yen(LOAN_PAYMENT)}円</td><td class="num" style="color:#94a3b8">±0</td></tr>
-        <tr><td>媒体費（月額）</td><td class="num">${yen(MONTHLY_MEDIA)}円</td><td class="num">${yen(Math.round(totalRecruit/6))}円</td><td class="num" style="color:${Math.round(totalRecruit/6)>MONTHLY_MEDIA?'#f87171':'#34d399'}">${Math.round(totalRecruit/6)>MONTHLY_MEDIA?'+':''}${yen(Math.round(totalRecruit/6)-MONTHLY_MEDIA)}円</td></tr>
-        <tr style="border-top:2px solid #334155"><td style="font-weight:700">営業利益</td><td class="num" style="font-weight:700">${yen(CURRENT_ENG*marginPerEng-INTERNAL_COST-LOAN_PAYMENT-MONTHLY_MEDIA)}円</td><td class="num" style="font-weight:700;color:#34d399">${yen((CURRENT_ENG+target)*marginPerEng-INTERNAL_COST-LOAN_PAYMENT-Math.round(totalRecruit/6))}円</td><td class="num" style="font-weight:700;color:#34d399">+${yen(target*marginPerEng-(Math.round(totalRecruit/6)-MONTHLY_MEDIA))}円</td></tr>
-      </tbody></table>
-    </div>`;
-
-    roiEl.innerHTML = rh;
+    resultEl.innerHTML = rh;
   }
 }
 
