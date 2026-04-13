@@ -925,9 +925,11 @@ function applyPreset(type){
 }
 
 function showTab(id){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.remove('active');
+    if(t.getAttribute('onclick')?.includes("'"+id+"'")) t.classList.add('active');
+  });
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  event.target.classList.add('active');
   document.getElementById('sec-'+id).classList.add('active');
 }
 
