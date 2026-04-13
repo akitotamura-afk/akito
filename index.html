@@ -116,6 +116,7 @@ table.media .num{text-align:right;font-variant-numeric:tabular-nums}
   <div class="tab" onclick="showTab('compare')">媒体比較</div>
   <div class="tab" onclick="showTab('bottleneck')">ボトルネック診断</div>
   <div class="tab" onclick="showTab('competitor')">競合分析</div>
+  <div class="tab" onclick="showTab('score')">スコア分析</div>
   <div class="tab" onclick="showTab('trend')">月次トレンド</div>
   <div class="tab" onclick="showTab('simulate')">メディアプラン試算</div>
   <div class="tab" onclick="showTab('simpl')">採用PLシミュレーション</div>
@@ -127,6 +128,7 @@ table.media .num{text-align:right;font-variant-numeric:tabular-nums}
 <div class="section" id="sec-compare"><div id="compareArea"></div></div>
 <div class="section" id="sec-bottleneck"><div id="bottleneckArea"></div></div>
 <div class="section" id="sec-competitor"><div id="competitorArea"></div></div>
+<div class="section" id="sec-score"><div id="scoreArea"></div></div>
 <div class="section" id="sec-trend"><div id="trendArea"></div></div>
 <div class="section" id="sec-simulate"><div id="simArea"></div></div>
 <div class="section" id="sec-simpl"><div id="simPLArea"></div></div>
@@ -334,6 +336,7 @@ function analyze(){
   renderCompare();
   renderBottleneck();
   renderCompetitor();
+  renderScore();
   renderTrend();
   renderSimulate();
   renderSimPL();
@@ -645,6 +648,199 @@ function renderBottleneck(){
   html += `</div>`;
 
   document.getElementById('bottleneckArea').innerHTML = html;
+}
+
+// ===== SCORE ANALYSIS =====
+function renderScore(){
+  // All score data from 応募スコア12月～2月 + コア定例
+  const SCORE = {
+    total: [
+      {month:'12月',apply:137,valid:52,interview:21,sales_start:10,hire:1,deal:6},
+      {month:'1月',apply:159,valid:41,interview:24,sales_start:21,hire:1,deal:3},
+      {month:'2月',apply:216,valid:60,interview:37,sales_start:27,hire:0,deal:2},
+      {month:'2月(週次累計)',apply:220,valid:49,interview:38,sales_start:33,hire:2,deal:2},
+      {month:'3月',apply:null,valid:null,interview:null,sales_start:31,hire:null,deal:null}
+    ],
+    en: [
+      {month:'12月',apply:50,valid:20,interview:10,sales_start:4,hire:1},
+      {month:'1月',apply:41,valid:12,interview:5,sales_start:5,hire:0},
+      {month:'2月',apply:40,valid:16,interview:8,sales_start:8,hire:0}
+    ],
+    doda: [
+      {month:'12月',apply:18,valid:8,interview:0,sales_start:0,hire:0},
+      {month:'1月',apply:21,valid:9,interview:6,sales_start:6,hire:1},
+      {month:'2月',apply:12,valid:4,interview:4,sales_start:3,hire:0}
+    ],
+    mynavi: [
+      {month:'12月',apply:50,valid:20,interview:9,sales_start:4,hire:0},
+      {month:'1月',apply:41,valid:12,interview:7,sales_start:5,hire:0},
+      {month:'2月',apply:40,valid:16,interview:8,sales_start:8,hire:0}
+    ],
+    type: [
+      {month:'12月',apply:19,valid:4,interview:2,sales_start:2,hire:0},
+      {month:'1月',apply:37,valid:4,interview:2,sales_start:2,hire:0},
+      {month:'2月',apply:57,valid:14,interview:10,sales_start:6,hire:0}
+    ],
+    airwork: [
+      {month:'12月',apply:0,valid:0,interview:0,sales_start:0,hire:0},
+      {month:'1月',apply:19,valid:4,interview:4,sales_start:3,hire:0},
+      {month:'2月',apply:67,valid:10,interview:7,sales_start:2,hire:0}
+    ]
+  };
+
+  // 2月週次データ
+  const WEEKLY = {
+    total: [{w:'1週目',apply:97,valid:18,interview:11,sales_start:10,hire:0},{w:'2週目',apply:44,valid:12,interview:14,sales_start:11,hire:1},{w:'3週目',apply:39,valid:13,interview:7,sales_start:7,hire:0},{w:'4週目',apply:40,valid:6,interview:6,sales_start:5,hire:1}],
+    en: [{w:'1週目',apply:6,valid:3,interview:1,sales_start:1,hire:0},{w:'2週目',apply:5,valid:3,interview:2,sales_start:2,hire:0},{w:'3週目',apply:12,valid:4,interview:3,sales_start:3,hire:0},{w:'4週目',apply:18,valid:4,interview:1,sales_start:1,hire:0}],
+    doda: [{w:'1週目',apply:2,valid:0,interview:3,sales_start:3,hire:0},{w:'2週目',apply:4,valid:2,interview:0,sales_start:0,hire:0},{w:'3週目',apply:6,valid:2,interview:0,sales_start:0,hire:0},{w:'4週目',apply:0,valid:0,interview:3,sales_start:2,hire:1}],
+    mynavi: [{w:'1週目',apply:20,valid:4,interview:2,sales_start:1,hire:0},{w:'2週目',apply:9,valid:3,interview:4,sales_start:4,hire:0},{w:'3週目',apply:7,valid:2,interview:2,sales_start:2,hire:0},{w:'4週目',apply:4,valid:0,interview:1,sales_start:1,hire:0}],
+    type: [{w:'1週目',apply:27,valid:4,interview:1,sales_start:1,hire:0},{w:'2週目',apply:12,valid:2,interview:4,sales_start:4,hire:1},{w:'3週目',apply:8,valid:5,interview:1,sales_start:1,hire:0},{w:'4週目',apply:11,valid:2,interview:1,sales_start:1,hire:0}],
+    airwork: [{w:'1週目',apply:41,valid:6,interview:3,sales_start:3,hire:0},{w:'2週目',apply:14,valid:2,interview:4,sales_start:1,hire:0},{w:'3週目',apply:6,valid:0,interview:1,sales_start:1,hire:0},{w:'4週目',apply:7,valid:0,interview:0,sales_start:0,hire:0}]
+  };
+
+  const stages = ['apply','valid','interview','sales_start','hire'];
+  const stageNames = ['応募','有効応募','面接実施','営業開始','入社'];
+  const stageColors = ['#38bdf8','#818cf8','#a78bfa','#fbbf24','#34d399'];
+  const mediaInfo = [
+    {key:'total',name:'総数',color:'#e2e8f0'},
+    {key:'en',name:'エン転職',color:'#f59e0b'},
+    {key:'doda',name:'DODA',color:'#ec4899'},
+    {key:'mynavi',name:'マイナビ',color:'#3b82f6'},
+    {key:'type',name:'type',color:'#22c55e'},
+    {key:'airwork',name:'HP/Indeed',color:'#14b8a6'}
+  ];
+  const pr = (a,b) => b&&b>0 ? (a/b*100).toFixed(1)+'%' : '-';
+
+  let html = '';
+
+  // === Section 1: 総数 月次推移 ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#e2e8f0"></span>総数 月次スコア</div>
+    <p style="font-size:.8rem;color:#94a3b8;margin-bottom:10px">応募スコア12月〜2月（月スコアまとめ）+ コア定例3月実績</p>
+    <div style="overflow-x:auto"><table class="media"><thead><tr>
+      <th>月</th>${stageNames.map((s,i)=>`<th style="color:${stageColors[i]}">${s}</th>`).join('')}<th>成約</th>
+      <th>有効率</th><th>面接率</th><th>営業開始率</th><th>入社率</th>
+    </tr></thead><tbody>`;
+
+  const totals = {apply:0,valid:0,interview:0,sales_start:0,hire:0,deal:0};
+  SCORE.total.forEach(r => {
+    const isWeekly = r.month.includes('週次');
+    const isMar = r.month === '3月';
+    html += `<tr style="${isWeekly?'background:#0f172a;font-style:italic;':''}${isMar?'background:#0c1425;':''}">
+      <td style="font-weight:600">${r.month}</td>`;
+    stages.forEach(s => html += `<td class="num" style="font-weight:700">${r[s]!==null?r[s]:'-'}</td>`);
+    html += `<td class="num" style="color:#e879f9;font-weight:700">${r.deal!==null?r.deal:'-'}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${pr(r.valid,r.apply)}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${pr(r.interview,r.valid)}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${pr(r.sales_start,r.interview)}</td>`;
+    html += `<td class="num" style="color:${r.hire>0?'#34d399':'#f87171'}">${pr(r.hire,r.sales_start)}</td>`;
+    html += `</tr>`;
+    if(!isWeekly && !isMar && r.apply !== null){
+      stages.forEach(s => totals[s] += (r[s]||0));
+      totals.deal += (r.deal||0);
+    }
+  });
+  html += `<tr style="border-top:2px solid #334155;font-weight:800"><td>3ヶ月計</td>`;
+  stages.forEach(s => html += `<td class="num">${totals[s]}</td>`);
+  html += `<td class="num" style="color:#e879f9">${totals.deal}</td>`;
+  html += `<td class="num" style="color:#fbbf24">${pr(totals.valid,totals.apply)}</td>`;
+  html += `<td class="num" style="color:#fbbf24">${pr(totals.interview,totals.valid)}</td>`;
+  html += `<td class="num" style="color:#fbbf24">${pr(totals.sales_start,totals.interview)}</td>`;
+  html += `<td class="num" style="color:#f87171">${pr(totals.hire,totals.sales_start)}</td>`;
+  html += `</tr></tbody></table></div>`;
+
+  // Trend bars
+  html += `<div style="margin-top:14px;display:flex;gap:16px;flex-wrap:wrap">`;
+  stages.forEach((s,si) => {
+    html += `<div style="flex:1;min-width:120px"><div style="font-size:.72rem;color:${stageColors[si]};font-weight:600;margin-bottom:4px">${stageNames[si]}</div>
+      <div style="display:flex;gap:2px;align-items:flex-end;height:60px">`;
+    const vals = SCORE.total.filter(r=>!r.month.includes('週次')&&r.month!=='3月').map(r=>r[s]||0);
+    const mx = Math.max(...vals,1);
+    vals.forEach((v,vi) => {
+      const h = Math.max((v/mx)*100,4);
+      html += `<div style="flex:1;text-align:center"><div style="font-size:.65rem;font-weight:700;color:${stageColors[si]}">${v}</div><div style="height:${h}%;background:${stageColors[si]};border-radius:3px 3px 0 0;margin:0 auto;width:80%"></div><div style="font-size:.55rem;color:#475569;margin-top:2px">${['12月','1月','2月'][vi]}</div></div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div></div>`;
+
+  // === Section 2: 媒体別月次スコア ===
+  mediaInfo.filter(m=>m.key!=='total').forEach(media => {
+    const data = SCORE[media.key];
+    if(!data) return;
+    html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:${media.color}"></span>${media.name} 月次スコア</div>
+      <div style="overflow-x:auto"><table class="media"><thead><tr>
+        <th>月</th>${stageNames.map((s,i)=>`<th style="color:${stageColors[i]}">${s}</th>`).join('')}
+        <th>有効率</th><th>面接率</th><th>営業開始率</th>
+      </tr></thead><tbody>`;
+    const mt = {apply:0,valid:0,interview:0,sales_start:0,hire:0};
+    data.forEach(r => {
+      html += `<tr><td style="font-weight:600">${r.month}</td>`;
+      stages.forEach(s => {
+        html += `<td class="num">${r[s]}</td>`;
+        mt[s] += r[s];
+      });
+      html += `<td class="num" style="color:#fbbf24">${pr(r.valid,r.apply)}</td>`;
+      html += `<td class="num" style="color:#fbbf24">${pr(r.interview,r.valid)}</td>`;
+      html += `<td class="num" style="color:#fbbf24">${pr(r.sales_start,r.interview)}</td></tr>`;
+    });
+    html += `<tr style="border-top:2px solid #334155;font-weight:700"><td>計</td>`;
+    stages.forEach(s => html += `<td class="num">${mt[s]}</td>`);
+    html += `<td class="num" style="color:#fbbf24">${pr(mt.valid,mt.apply)}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${pr(mt.interview,mt.valid)}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${pr(mt.sales_start,mt.interview)}</td></tr>`;
+    html += `</tbody></table></div></div>`;
+  });
+
+  // === Section 3: 2月週次データ ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#a78bfa"></span>2月 週次データ</div>
+    <p style="font-size:.8rem;color:#94a3b8;margin-bottom:10px">2月の週次推移（累計: 応募220→有効49→面接38→営業開始33→入社2）</p>`;
+  mediaInfo.forEach(media => {
+    const wd = WEEKLY[media.key];
+    if(!wd) return;
+    html += `<div style="margin-bottom:12px"><div style="font-size:.82rem;font-weight:600;color:${media.color};margin-bottom:4px">${media.name}</div>
+      <div style="overflow-x:auto"><table class="media" style="font-size:.78rem"><thead><tr><th>週</th>${stageNames.map((s,i)=>`<th style="color:${stageColors[i]}">${s}</th>`).join('')}</tr></thead><tbody>`;
+    const wt = {apply:0,valid:0,interview:0,sales_start:0,hire:0};
+    wd.forEach(w => {
+      html += `<tr><td>${w.w}</td>`;
+      stages.forEach(s => { html += `<td class="num">${w[s]}</td>`; wt[s]+=w[s]; });
+      html += `</tr>`;
+    });
+    html += `<tr style="border-top:1px solid #334155;font-weight:700"><td>計</td>`;
+    stages.forEach(s => html += `<td class="num">${wt[s]}</td>`);
+    html += `</tr></tbody></table></div></div>`;
+  });
+  html += `</div>`;
+
+  // === Section 4: 全媒体クロス比較 ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#fbbf24"></span>3ヶ月間 媒体別合計 + 転換率比較</div>
+    <div style="overflow-x:auto"><table class="media"><thead><tr>
+      <th>媒体</th>${stageNames.map((s,i)=>`<th style="color:${stageColors[i]}">${s}</th>`).join('')}
+      <th>有効率</th><th>有効→面接</th><th>面接→営開</th><th>全体(応募→営開)</th>
+    </tr></thead><tbody>`;
+  mediaInfo.forEach(media => {
+    const data = SCORE[media.key];
+    if(!data) return;
+    const mt = {apply:0,valid:0,interview:0,sales_start:0,hire:0};
+    data.filter(r=>!r.month?.includes('週次')&&r.month!=='3月').forEach(r => {
+      stages.forEach(s => mt[s] += (r[s]||0));
+    });
+    const isTotal = media.key === 'total';
+    html += `<tr style="${isTotal?'border-top:2px solid #334155;font-weight:800;background:#0f172a':''}">
+      <td style="color:${media.color};font-weight:700">${media.name}</td>`;
+    stages.forEach(s => html += `<td class="num">${mt[s]}</td>`);
+    const vr = pr(mt.valid,mt.apply);
+    const ir = pr(mt.interview,mt.valid);
+    const sr = pr(mt.sales_start,mt.interview);
+    const overall = pr(mt.sales_start,mt.apply);
+    // Color: best in column gets green
+    html += `<td class="num" style="color:#fbbf24">${vr}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${ir}</td>`;
+    html += `<td class="num" style="color:#fbbf24">${sr}</td>`;
+    html += `<td class="num" style="color:#e879f9">${overall}</td></tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+
+  document.getElementById('scoreArea').innerHTML = html;
 }
 
 // ===== TREND =====
@@ -1594,6 +1790,7 @@ function showTab(id){
 // Init
 renderInput();
 renderCompetitor();
+renderScore();
 renderSimPL();
 </script>
 </body>
