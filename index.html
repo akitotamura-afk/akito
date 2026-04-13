@@ -115,6 +115,7 @@ table.media .num{text-align:right;font-variant-numeric:tabular-nums}
   <div class="tab" onclick="showTab('funnel')">ファネル分析</div>
   <div class="tab" onclick="showTab('compare')">媒体比較</div>
   <div class="tab" onclick="showTab('bottleneck')">ボトルネック診断</div>
+  <div class="tab" onclick="showTab('competitor')">競合分析</div>
   <div class="tab" onclick="showTab('trend')">月次トレンド</div>
   <div class="tab" onclick="showTab('simulate')">メディアプラン試算</div>
 </div>
@@ -124,6 +125,7 @@ table.media .num{text-align:right;font-variant-numeric:tabular-nums}
 <div class="section" id="sec-funnel"><div id="funnelArea"></div></div>
 <div class="section" id="sec-compare"><div id="compareArea"></div></div>
 <div class="section" id="sec-bottleneck"><div id="bottleneckArea"></div></div>
+<div class="section" id="sec-competitor"><div id="competitorArea"></div></div>
 <div class="section" id="sec-trend"><div id="trendArea"></div></div>
 <div class="section" id="sec-simulate"><div id="simArea"></div></div>
 <div id="modalContainer"></div>
@@ -318,6 +320,7 @@ function analyze(){
   renderFunnel();
   renderCompare();
   renderBottleneck();
+  renderCompetitor();
   renderTrend();
   renderSimulate();
   showTab('overview');
@@ -910,6 +913,224 @@ function applyPreset(type){
   updateSim();
 }
 
+// ===== COMPETITOR ANALYSIS =====
+function renderCompetitor(){
+  const competitors = [
+    {name:'KANGEN Holdings', emp2023:17, emp2025:190, growth:1018, kangenRate:'65-83%', salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'還元率階層制'},
+    {name:'VISIONARY JAPAN', emp2023:61, emp2025:302, growth:395, kangenRate:'80-95%', salary:'610万', salaryUp:null, remote:'93%', overtime:'5-8h', projects:'30,000+', features:'離職率1-2%, SNS活用'},
+    {name:'ESES', emp2023:72, emp2025:230, growth:219, kangenRate:'77%', salary:null, salaryUp:null, remote:'9割', overtime:'7h', projects:null, features:'案件選択制'},
+    {name:'フラット', emp2023:23, emp2025:70, growth:204, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'クリアグループ企業'},
+    {name:'ギグー', emp2023:33, emp2025:97, growth:194, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'-'},
+    {name:'SeeD', emp2023:67, emp2025:186, growth:178, kangenRate:'65%', salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'離職率5.11%'},
+    {name:'Cloud Soft', emp2023:50, emp2025:109, growth:118, kangenRate:'73-90%', salary:null, salaryUp:'148万', remote:'90%', overtime:'7.8h', projects:null, features:'Udemy無料'},
+    {name:'クリア', emp2023:172, emp2025:328, growth:91, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'グループ展開'},
+    {name:'GAGA', emp2023:36, emp2025:69, growth:92, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'名古屋拠点'},
+    {name:'テクニケーション', emp2023:207, emp2025:378, growth:83, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'単価給与連動制, YouTube活用'},
+    {name:'Dexall', emp2023:47, emp2025:85, growth:81, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'-'},
+    {name:'HAL', emp2023:827, emp2025:1421, growth:72, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'老舗SES, 安定型'},
+    {name:'エージェントグロー', emp2023:416, emp2025:531, growth:28, kangenRate:'76%+福利4%', salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'月給保障, 来期還元率2%下げ'},
+    {name:'リツアンSTC', emp2023:831, emp2025:1064, growth:28, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'老舗高還元'},
+    {name:'TWOSTONE&Sons', emp2023:249, emp2025:294, growth:18, kangenRate:null, salary:null, salaryUp:null, remote:null, overtime:null, projects:null, features:'上場グループ'}
+  ];
+
+  const rezon = {name:'Rezon（自社）', emp2023:null, emp2025:'15-20', growth:null, kangenRate:'83-95%', salary:'670万(開発)/573万(初級)', salaryUp:'180万', remote:'93%', overtime:'6.1h', projects:'30,000+', features:'AIマッチング, 前給与保証, 副業OK, 年休125日'};
+
+  // === Growth Ranking Chart ===
+  const top12 = competitors.slice(0, 13);
+  const maxGrowth = Math.max(...top12.map(c=>c.growth));
+
+  let html = `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#6366f1"></span>被保険者数増加率ランキング（2023/06 → 2025/05）</div>
+    <p style="font-size:.78rem;color:#64748b;margin-bottom:14px">SES企業の被保険者数増加率上位。Rezonは設立間もないため参考表示。</p>
+    <div style="display:flex;flex-direction:column;gap:4px">`;
+  top12.forEach((c,i)=>{
+    const w = Math.max((c.growth/maxGrowth)*100, 3);
+    const barColor = i===0?'#f59e0b':i<3?'#38bdf8':'#334155';
+    html += `<div style="display:flex;align-items:center;gap:8px">
+      <div style="min-width:160px;font-size:.78rem;text-align:right;color:#94a3b8">${i+1}. ${c.name}</div>
+      <div style="flex:1;position:relative">
+        <div style="height:22px;width:${w}%;background:${barColor};border-radius:4px;display:flex;align-items:center;padding:0 8px">
+          <span style="font-size:.7rem;font-weight:700;color:#fff;white-space:nowrap">+${c.growth}%</span>
+        </div>
+      </div>
+      <div style="min-width:90px;font-size:.7rem;color:#64748b">${c.emp2023}→${c.emp2025}名</div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // === Comparison Table ===
+  const compareCompanies = [
+    {name:'VISIONARY JAPAN', kangenRate:'80-95%', salary:'610万', salaryUp:'-', remote:'93%', overtime:'5-8h', projects:'30,000+', features:'離職率1-2%, SNS活用'},
+    {name:'ESES', kangenRate:'77%', salary:'-', salaryUp:'-', remote:'9割', overtime:'7h', projects:'-', features:'案件選択制'},
+    {name:'Cloud Soft', kangenRate:'73-90%', salary:'-', salaryUp:'148万', remote:'90%', overtime:'7.8h', projects:'-', features:'Udemy無料'},
+    {name:'SeeD', kangenRate:'65%', salary:'-', salaryUp:'-', remote:'-', overtime:'-', projects:'-', features:'離職率5.11%'},
+    {name:'エージェントグロー', kangenRate:'76%+福利4%', salary:'-', salaryUp:'-', remote:'-', overtime:'-', projects:'-', features:'月給保障'},
+    {name:'テクニケーション', kangenRate:'-', salary:'-', salaryUp:'-', remote:'-', overtime:'-', projects:'-', features:'単価給与連動制, YouTube'},
+    {name:'KANGEN Holdings', kangenRate:'65-83%', salary:'-', salaryUp:'-', remote:'-', overtime:'-', projects:'-', features:'還元率階層制'}
+  ];
+
+  function adv(val){return 'style="color:#34d399;font-weight:700"';}
+  function dis(val){return 'style="color:#f87171;font-weight:700"';}
+  function neu(val){return '';}
+
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#22c55e"></span>Rezon vs 競合 比較表</div>
+    <div style="overflow-x:auto"><table class="media"><thead><tr>
+      <th>項目</th><th style="color:#6366f1;background:#1a1a3e;border-radius:6px 6px 0 0">Rezon</th>
+      ${compareCompanies.map(c=>`<th>${c.name}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+  // Row: 還元率
+  html += `<tr><td>還元率</td><td class="num" ${adv()}>83-95%</td>`;
+  compareCompanies.forEach(c=>{
+    const style = (c.kangenRate==='80-95%')?adv():(c.kangenRate.includes('65')||c.kangenRate.includes('73')||c.kangenRate.includes('76')||c.kangenRate.includes('77'))?neu():'';
+    html += `<td class="num" ${style}>${c.kangenRate}</td>`;
+  });
+  html += `</tr>`;
+
+  // Row: 平均年収
+  html += `<tr><td>平均年収</td><td class="num" ${adv()}>670万(開発)</td>`;
+  compareCompanies.forEach(c=>{ html += `<td class="num">${c.salary}</td>`; });
+  html += `</tr>`;
+
+  // Row: 年収UP額
+  html += `<tr><td>年収UP額</td><td class="num" ${adv()}>180万</td>`;
+  compareCompanies.forEach(c=>{
+    const style = c.salaryUp==='148万'?neu():'';
+    html += `<td class="num" ${style}>${c.salaryUp}</td>`;
+  });
+  html += `</tr>`;
+
+  // Row: リモート率
+  html += `<tr><td>リモート率</td><td class="num" ${adv()}>93%</td>`;
+  compareCompanies.forEach(c=>{
+    const style = c.remote==='93%'?adv():(c.remote==='9割'||c.remote==='90%')?neu():'';
+    html += `<td class="num" ${style}>${c.remote}</td>`;
+  });
+  html += `</tr>`;
+
+  // Row: 残業時間
+  html += `<tr><td>残業時間</td><td class="num" ${adv()}>月6.1h</td>`;
+  compareCompanies.forEach(c=>{
+    const val = c.overtime==='-'?'-':'月'+c.overtime;
+    html += `<td class="num">${val}</td>`;
+  });
+  html += `</tr>`;
+
+  // Row: 案件数
+  html += `<tr><td>案件数</td><td class="num" ${adv()}>30,000+</td>`;
+  compareCompanies.forEach(c=>{ html += `<td class="num">${c.projects}</td>`; });
+  html += `</tr>`;
+
+  // Row: 特徴的な制度
+  html += `<tr><td>特徴的な制度</td><td style="color:#a78bfa;font-size:.78rem">AIマッチング<br>前給与保証<br>副業OK<br>年休125日</td>`;
+  compareCompanies.forEach(c=>{ html += `<td style="font-size:.78rem">${c.features.replace(/, /g,'<br>')}</td>`; });
+  html += `</tr>`;
+
+  html += `</tbody></table></div></div>`;
+
+  // === Strengths & Weaknesses ===
+  html += `<div class="chart-row fade-in">
+    <div class="card"><div class="card-title"><span class="dot" style="background:#34d399"></span>Rezonの強み</div>
+      <ul style="list-style:none;padding:0">
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>還元率が業界最高水準（83-95%） - VISIONARY JAPANと並ぶトップ</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>AIマッチング技術（独自の差別化ポイント、他社にない強み）</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>前給与保証あり（転職リスクを軽減、競合では少ない）</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>平均年収UP 180万円（Cloud Softの148万を上回る業界トップ水準）</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>リモート率93%（VISIONARY JAPANと同等、業界最高水準）</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>残業 月6.1h（VISIONARY JAPAN 5-8h、ESES 7hと同等以下）</li>
+        <li style="padding:8px 0;font-size:.84rem"><span style="color:#34d399;font-weight:700;margin-right:8px">&#9650;</span>副業OK（エンジニアの副収入ニーズに対応）</li>
+      </ul>
+    </div>
+    <div class="card"><div class="card-title"><span class="dot" style="background:#f87171"></span>Rezonの弱み・課題</div>
+      <ul style="list-style:none;padding:0">
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#f87171;font-weight:700;margin-right:8px">&#9660;</span>企業規模が小さい（被保険者数15-20名）→ 安定性への不安</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#f87171;font-weight:700;margin-right:8px">&#9660;</span>知名度が低い（VISIONARY JAPANやESESはSNS/YouTube活用で知名度高い）</li>
+        <li style="padding:8px 0;border-bottom:1px solid #1e293b;font-size:.84rem"><span style="color:#f87171;font-weight:700;margin-right:8px">&#9660;</span>実績・口コミが少ない（設立間もないため転職サイトの評価蓄積なし）</li>
+        <li style="padding:8px 0;font-size:.84rem"><span style="color:#f87171;font-weight:700;margin-right:8px">&#9660;</span>資金調達3000万円 → 大手と比べた財務基盤の不安</li>
+      </ul>
+    </div>
+  </div>`;
+
+  // === Actionable Messaging ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#fbbf24"></span>次回訴求で活かせるポイント</div>
+    <p style="font-size:.78rem;color:#64748b;margin-bottom:14px">競合分析を踏まえた、求人広告・採用メッセージングの具体的な改善案</p>`;
+
+  const suggestions = [
+    {
+      title: '還元率の具体的な比較訴求',
+      icon: '&#128176;',
+      impact: 'high',
+      items: [
+        '「還元率最大95% - 業界トップクラス」を見出しに明記',
+        '「VISIONARY JAPANと同水準の還元率」と暗に示す比較表現',
+        '「一般的なSES企業の還元率60-70%に対し、当社は83-95%」と数字で訴求',
+        '月収ベースでの手取り差額シミュレーションを掲載'
+      ]
+    },
+    {
+      title: 'AIマッチングの差別化',
+      icon: '&#129302;',
+      impact: 'high',
+      items: [
+        '「AI技術で最適な案件を自動マッチング」- 他社にない唯一の強み',
+        '「希望条件とスキルをAIが分析し、ミスマッチを防止」',
+        '「30,000件以上の案件からAIが最適な案件を提案」',
+        'テクノロジー企業としてのブランディング（エンジニアに刺さる）'
+      ]
+    },
+    {
+      title: '年収UP実績の具体数字',
+      icon: '&#128200;',
+      impact: 'high',
+      items: [
+        '「平均年収UP 180万円」を大きく訴求（Cloud Softの148万を超える）',
+        '「開発エンジニア平均年収670万円」の実績値を明記',
+        '「前職給与保証あり」で転職リスクゼロを強調',
+        '具体的な年収モデル（経験3年→550万、5年→700万 等）を提示'
+      ]
+    },
+    {
+      title: '小規模ゆえの手厚いサポート訴求',
+      icon: '&#129309;',
+      impact: 'mid',
+      items: [
+        '「少数精鋭だからこそ、一人ひとりに向き合えるキャリア支援」',
+        '「代表との距離が近い」「意思決定が早い」ことをメリットに転換',
+        '「大手SESの歯車ではなく、一人のエンジニアとして扱われる環境」',
+        '成長フェーズの企業で裁量を持って働ける点を訴求'
+      ]
+    },
+    {
+      title: '競合が弱い部分を突く',
+      icon: '&#127919;',
+      impact: 'mid',
+      items: [
+        '副業OK（多くのSES企業は副業禁止 → 明確な差別化）',
+        '年休125日（SES業界平均を上回る）',
+        '残業月6.1h（数字の具体性が信頼感に繋がる）',
+        '前給与保証（転職の最大の不安を解消、競合には少ない制度）',
+        'エージェントグローの還元率引き下げ発表を受け「当社は還元率維持」と訴求'
+      ]
+    }
+  ];
+
+  suggestions.forEach(s=>{
+    const impCls = s.impact==='high'?'impact-high':'impact-mid';
+    const impLabel = s.impact==='high'?'効果 大':'効果 中';
+    html += `<div class="action-card">
+      <div class="action-title">${s.icon} ${s.title} <span class="action-impact ${impCls}">${impLabel}</span></div>
+      <ul class="action-list">`;
+    s.items.forEach(item=>{
+      html += `<li>${item}</li>`;
+    });
+    html += `</ul></div>`;
+  });
+
+  html += `<div class="insight insight-info" style="margin-top:14px"><strong>総合戦略:</strong> Rezonの最大の武器は「高還元率 + AIマッチング + 前給与保証」の3点セット。大手SESにはない技術力と、小規模ゆえの柔軟性・手厚さを前面に出し、「SES業界の常識を変える」というポジショニングで差別化を図る。</div>`;
+  html += `</div>`;
+
+  document.getElementById('competitorArea').innerHTML = html;
+}
+
 function showTab(id){
   document.querySelectorAll('.tab').forEach(function(t){
     t.classList.remove('active');
@@ -922,6 +1143,7 @@ function showTab(id){
 
 // Init
 renderInput();
+renderCompetitor();
 </script>
 </body>
 </html>
