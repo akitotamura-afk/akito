@@ -652,8 +652,197 @@ function renderBottleneck(){
 
 // ===== SCORE ANALYSIS =====
 function renderScore(){
-  // All score data from 応募スコア12月～2月 + コア定例
-  const SCORE = {
+  // Full data: 2025/01-2026/04 from レポート + 月次スコア + 週次データ
+  const MONTHLY = [
+    {month:'2025/01',apply:0,valid:0,interview_set:0,interview:0,sales_start:0,hire:0,phase:'前任'},
+    {month:'2025/02',apply:89,valid:28,interview_set:27,interview:17,sales_start:3,hire:2,phase:'前任'},
+    {month:'2025/03',apply:92,valid:28,interview_set:27,interview:11,sales_start:5,hire:1,phase:'前任'},
+    {month:'2025/04',apply:85,valid:31,interview_set:26,interview:17,sales_start:7,hire:5,phase:'前任'},
+    {month:'2025/05',apply:89,valid:46,interview_set:36,interview:16,sales_start:9,hire:3,phase:'前任'},
+    {month:'2025/06',apply:125,valid:51,interview_set:38,interview:17,sales_start:15,hire:4,phase:'前任'},
+    {month:'2025/07',apply:192,valid:82,interview_set:57,interview:9,sales_start:4,hire:3,phase:'前任'},
+    {month:'2025/08',apply:89,valid:29,interview_set:19,interview:5,sales_start:0,hire:0,phase:'前任'},
+    {month:'2025/09',apply:118,valid:45,interview_set:26,interview:10,sales_start:2,hire:2,phase:'前任'},
+    {month:'2025/10',apply:144,valid:53,interview_set:49,interview:43,sales_start:8,hire:4,phase:'前任'},
+    {month:'2025/11',apply:169,valid:89,interview_set:64,interview:54,sales_start:13,hire:4,phase:'前任'},
+    {month:'2025/12',apply:145,valid:52,interview_set:44,interview:31,sales_start:11,hire:1,phase:'前任'},
+    {month:'2026/01',apply:152,valid:46,interview_set:39,interview:34,sales_start:23,hire:1,phase:'新任'},
+    {month:'2026/02',apply:225,valid:61,interview_set:52,interview:47,sales_start:26,hire:0,phase:'新任'},
+    {month:'2026/03',apply:168,valid:44,interview_set:35,interview:34,sales_start:31,hire:4,phase:'新任'},
+    {month:'2026/04',apply:52,valid:13,interview_set:10,interview:10,sales_start:11,hire:1,phase:'新任',note:'4月途中(2週目まで)'}
+  ];
+
+  // Media totals (cumulative from レポート)
+  const MEDIA_TOTAL = [
+    {name:'DODA',color:'#ec4899',apply:333,valid:124,interview_set:109,interview:61,sales_start:26,hire:9},
+    {name:'type',color:'#22c55e',apply:749,valid:200,interview_set:129,interview:75,sales_start:25,hire:10},
+    {name:'D-type',color:'#84cc16',apply:149,valid:116,interview_set:95,interview:29,sales_start:16,hire:4},
+    {name:'マイナビ',color:'#3b82f6',apply:317,valid:144,interview_set:120,interview:119,sales_start:32,hire:6},
+    {name:'エン転職',color:'#f59e0b',apply:153,valid:67,interview_set:61,interview:29,sales_start:23,hire:1},
+    {name:'Airワーク',color:'#14b8a6',apply:95,valid:17,interview_set:14,interview:12,sales_start:9,hire:0}
+  ];
+
+  // 3月 media breakdown
+  const MAR_MEDIA = [
+    {name:'エン',color:'#f59e0b',apply:37,valid:14,interview_set:13,interview:12,sales_start:10,hire:2},
+    {name:'マイナビ',color:'#3b82f6',apply:63,valid:14,interview_set:11,interview:12,sales_start:12,hire:1},
+    {name:'DODA',color:'#ec4899',apply:27,valid:7,interview_set:2,interview:3,sales_start:3,hire:0},
+    {name:'type',color:'#22c55e',apply:33,valid:8,interview_set:7,interview:5,sales_start:4,hire:0},
+    {name:'HP/Indeed',color:'#14b8a6',apply:8,valid:1,interview_set:2,interview:2,sales_start:2,hire:1}
+  ];
+
+  // 4月 media breakdown (2週目まで)
+  const APR_MEDIA = [
+    {name:'エン',color:'#f59e0b',apply:6,valid:5,interview_set:5,interview:5,sales_start:5,hire:0},
+    {name:'マイナビ',color:'#3b82f6',apply:18,valid:3,interview_set:3,interview:3,sales_start:3,hire:0},
+    {name:'DODA',color:'#ec4899',apply:10,valid:2,interview_set:0,interview:0,sales_start:0,hire:1},
+    {name:'type',color:'#22c55e',apply:13,valid:2,interview_set:2,interview:2,sales_start:2,hire:0},
+    {name:'HP/Indeed',color:'#14b8a6',apply:5,valid:1,interview_set:0,interview:0,sales_start:1,hire:0}
+  ];
+
+  const stgKeys = ['apply','valid','interview_set','interview','sales_start','hire'];
+  const stgNames = ['応募','有効応募','面接設定','面接実施','営業開始','入社'];
+  const stgColors = ['#38bdf8','#818cf8','#c084fc','#a78bfa','#fbbf24','#34d399'];
+  const pr = (a,b) => b>0?(a/b*100).toFixed(1)+'%':'-';
+
+  let html = '';
+
+  // === Section 1: 全期間月次データ ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#e2e8f0"></span>全期間 月次スコア（2025/01〜2026/04）</div>
+    <p style="font-size:.78rem;color:#94a3b8;margin-bottom:8px">データソース: レポート(3月末まで) + 2月・3月・4月個別スコアシート</p>
+    <div style="overflow-x:auto"><table class="media"><thead><tr>
+      <th>月</th><th>体制</th>${stgNames.map((s,i)=>`<th style="color:${stgColors[i]}">${s}</th>`).join('')}
+      <th>有効率</th><th>設定率</th><th>実施率</th><th>営開率</th><th>入社率</th><th>備考</th>
+    </tr></thead><tbody>`;
+
+  const totPre={apply:0,valid:0,interview_set:0,interview:0,sales_start:0,hire:0,n:0};
+  const totNew={apply:0,valid:0,interview_set:0,interview:0,sales_start:0,hire:0,n:0};
+  const totAll={apply:0,valid:0,interview_set:0,interview:0,sales_start:0,hire:0};
+
+  MONTHLY.forEach((r,ri) => {
+    const isNew = r.phase==='新任';
+    const isPartial = r.note;
+    const bgStyle = isNew ? 'background:#0c1425;' : '';
+    const borderStyle = ri===12 ? 'border-top:3px solid #6366f1;' : '';
+    html += `<tr style="${bgStyle}${borderStyle}">
+      <td style="font-weight:600;white-space:nowrap">${r.month}</td>
+      <td style="font-size:.7rem;color:${isNew?'#818cf8':'#475569'}">${isNew?'新任':'前任'}</td>`;
+    stgKeys.forEach((s,si) => html += `<td class="num" style="font-weight:700;color:${stgColors[si]}">${r[s]}</td>`);
+    html += `<td class="num" style="color:#fbbf24">${pr(r.valid,r.apply)}</td>`;
+    html += `<td class="num">${pr(r.interview_set,r.valid)}</td>`;
+    html += `<td class="num">${pr(r.interview,r.interview_set)}</td>`;
+    html += `<td class="num" style="color:#fb923c">${pr(r.sales_start,r.interview)}</td>`;
+    html += `<td class="num" style="color:${r.hire>0?'#34d399':'#f87171'}">${pr(r.hire,r.sales_start)}</td>`;
+    html += `<td style="font-size:.68rem;color:#475569">${r.note||''}</td></tr>`;
+
+    if(r.apply > 0 && !isPartial){
+      stgKeys.forEach(s => totAll[s] += r[s]);
+      if(isNew){ stgKeys.forEach(s => totNew[s] += r[s]); totNew.n++; }
+      else { stgKeys.forEach(s => totPre[s] += r[s]); totPre.n++; }
+    }
+  });
+
+  // Summary rows
+  [{label:'前任期間計(2月-12月)',d:totPre,color:'#475569'},{label:'新任期間計(1月-3月)',d:totNew,color:'#818cf8'},{label:'全期間計',d:totAll,color:'#e2e8f0'}].forEach(row => {
+    html += `<tr style="border-top:2px solid #334155;font-weight:800;background:#0a0e1a">
+      <td style="color:${row.color}" colspan="2">${row.label}</td>`;
+    stgKeys.forEach(s => html += `<td class="num">${row.d[s]}</td>`);
+    html += `<td class="num" style="color:#fbbf24">${pr(row.d.valid,row.d.apply)}</td>`;
+    html += `<td class="num">${pr(row.d.interview_set,row.d.valid)}</td>`;
+    html += `<td class="num">${pr(row.d.interview,row.d.interview_set)}</td>`;
+    html += `<td class="num" style="color:#fb923c">${pr(row.d.sales_start,row.d.interview)}</td>`;
+    html += `<td class="num" style="color:#34d399">${pr(row.d.hire,row.d.sales_start)}</td>`;
+    html += `<td></td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  // Trend bars for key metrics
+  html += `<div style="margin-top:14px;display:flex;gap:12px;flex-wrap:wrap">`;
+  ['apply','valid','sales_start','hire'].forEach((s,si) => {
+    const ci = stgKeys.indexOf(s);
+    html += `<div style="flex:1;min-width:140px"><div style="font-size:.72rem;color:${stgColors[ci]};font-weight:600;margin-bottom:4px">${stgNames[ci]}</div>
+      <div style="display:flex;gap:1px;align-items:flex-end;height:70px">`;
+    const vals = MONTHLY.filter(r=>r.apply>0||s==='hire').map(r=>r[s]);
+    const mx = Math.max(...vals,1);
+    MONTHLY.filter(r=>r.apply>0||s==='hire').forEach((r,vi) => {
+      const v = r[s];
+      const h = Math.max((v/mx)*100,2);
+      const isNew = r.phase==='新任';
+      html += `<div style="flex:1;text-align:center" title="${r.month}: ${v}"><div style="font-size:.5rem;font-weight:700;color:${stgColors[ci]}">${v||''}</div><div style="height:${h}%;background:${isNew?stgColors[ci]:'#334155'};border-radius:2px 2px 0 0;margin:0 auto;width:90%"></div></div>`;
+    });
+    html += `</div><div style="display:flex;justify-content:space-between;font-size:.5rem;color:#334155;margin-top:2px"><span>2月</span><span>12月</span><span style="color:#818cf8">1月〜</span></div></div>`;
+  });
+  html += `</div></div>`;
+
+  // === Section 2: 前任 vs 新任比較 ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#6366f1"></span>前任 vs 新任 比較</div>
+    <div style="overflow-x:auto"><table class="media"><thead><tr>
+      <th>指標</th><th>前任(11ヶ月平均)</th><th>新任(3ヶ月平均)</th><th>変化</th>
+    </tr></thead><tbody>`;
+  const preAvg = {}; const newAvg = {};
+  stgKeys.forEach(s => { preAvg[s]=totPre.n?Math.round(totPre[s]/totPre.n):0; newAvg[s]=totNew.n?Math.round(totNew[s]/totNew.n):0; });
+  stgKeys.forEach((s,i) => {
+    const diff = newAvg[s]-preAvg[s];
+    const pctChg = preAvg[s]>0?Math.round(diff/preAvg[s]*100):0;
+    html += `<tr><td style="color:${stgColors[i]};font-weight:600">${stgNames[i]}</td>
+      <td class="num">${preAvg[s]}/月</td><td class="num" style="font-weight:700">${newAvg[s]}/月</td>
+      <td class="num" style="color:${diff>=0?'#34d399':'#f87171'};font-weight:700">${diff>=0?'+':''}${diff} (${diff>=0?'+':''}${pctChg}%)</td></tr>`;
+  });
+  // Key rates
+  const preVR = totPre.apply?totPre.valid/totPre.apply*100:0;
+  const newVR = totNew.apply?totNew.valid/totNew.apply*100:0;
+  const preSR = totPre.interview?totPre.sales_start/totPre.interview*100:0;
+  const newSR = totNew.interview?totNew.sales_start/totNew.interview*100:0;
+  html += `<tr style="border-top:1px solid #334155"><td style="font-weight:600">有効応募率</td><td class="num">${preVR.toFixed(1)}%</td><td class="num" style="font-weight:700">${newVR.toFixed(1)}%</td><td class="num" style="color:${newVR>=preVR?'#34d399':'#f87171'}">${(newVR-preVR)>=0?'+':''}${(newVR-preVR).toFixed(1)}pt</td></tr>`;
+  html += `<tr><td style="font-weight:600">面接→営業開始率</td><td class="num">${preSR.toFixed(1)}%</td><td class="num" style="font-weight:700">${newSR.toFixed(1)}%</td><td class="num" style="color:${newSR>=preSR?'#34d399':'#f87171'}">${(newSR-preSR)>=0?'+':''}${(newSR-preSR).toFixed(1)}pt</td></tr>`;
+  html += `</tbody></table></div></div>`;
+
+  // === Section 3: 媒体別累計 ===
+  html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#fbbf24"></span>媒体別 累計スコア（全期間）</div>
+    <div style="overflow-x:auto"><table class="media"><thead><tr>
+      <th>媒体</th>${stgNames.map((s,i)=>`<th style="color:${stgColors[i]}">${s}</th>`).join('')}
+      <th>有効率</th><th>設定率</th><th>実施率</th><th>営開率</th><th>入社率</th><th>全体(応募→入社)</th>
+    </tr></thead><tbody>`;
+  MEDIA_TOTAL.forEach(m => {
+    html += `<tr><td style="color:${m.color};font-weight:700">${m.name}</td>`;
+    stgKeys.forEach(s => html += `<td class="num">${m[s]}</td>`);
+    html += `<td class="num" style="color:#fbbf24">${pr(m.valid,m.apply)}</td>`;
+    html += `<td class="num">${pr(m.interview_set,m.valid)}</td>`;
+    html += `<td class="num">${pr(m.interview,m.interview_set)}</td>`;
+    html += `<td class="num">${pr(m.sales_start,m.interview)}</td>`;
+    html += `<td class="num" style="color:#34d399">${pr(m.hire,m.sales_start)}</td>`;
+    html += `<td class="num" style="color:#e879f9">${pr(m.hire,m.apply)}</td></tr>`;
+  });
+  const mtAll = {};stgKeys.forEach(s=>mtAll[s]=MEDIA_TOTAL.reduce((sum,m)=>sum+m[s],0));
+  html += `<tr style="border-top:2px solid #334155;font-weight:800"><td>合計</td>`;
+  stgKeys.forEach(s => html += `<td class="num">${mtAll[s]}</td>`);
+  html += `<td class="num">${pr(mtAll.valid,mtAll.apply)}</td><td class="num">${pr(mtAll.interview_set,mtAll.valid)}</td><td class="num">${pr(mtAll.interview,mtAll.interview_set)}</td><td class="num">${pr(mtAll.sales_start,mtAll.interview)}</td><td class="num">${pr(mtAll.hire,mtAll.sales_start)}</td><td class="num" style="color:#e879f9">${pr(mtAll.hire,mtAll.apply)}</td></tr>`;
+  html += `</tbody></table></div></div>`;
+
+  // === Section 4: 3月・4月 媒体別 ===
+  [{title:'3月 媒体別スコア',data:MAR_MEDIA,note:'確定値'},{title:'4月 媒体別スコア（2週目まで）',data:APR_MEDIA,note:'進行中'}].forEach(sec => {
+    html += `<div class="card fade-in"><div class="card-title"><span class="dot" style="background:#a78bfa"></span>${sec.title} <span style="font-size:.72rem;color:#475569;font-weight:400;margin-left:8px">${sec.note}</span></div>
+      <div style="overflow-x:auto"><table class="media"><thead><tr>
+        <th>媒体</th>${stgNames.map((s,i)=>`<th style="color:${stgColors[i]}">${s}</th>`).join('')}
+        <th>有効率</th><th>営開率</th>
+      </tr></thead><tbody>`;
+    const st={};stgKeys.forEach(s=>st[s]=0);
+    sec.data.forEach(m => {
+      html += `<tr><td style="color:${m.color};font-weight:600">${m.name}</td>`;
+      stgKeys.forEach(s => { html += `<td class="num">${m[s]}</td>`; st[s]+=m[s]; });
+      html += `<td class="num" style="color:#fbbf24">${pr(m.valid,m.apply)}</td>`;
+      html += `<td class="num" style="color:#fb923c">${pr(m.sales_start,m.interview)}</td></tr>`;
+    });
+    html += `<tr style="border-top:2px solid #334155;font-weight:800"><td>合計</td>`;
+    stgKeys.forEach(s => html += `<td class="num">${st[s]}</td>`);
+    html += `<td class="num">${pr(st.valid,st.apply)}</td><td class="num">${pr(st.sales_start,st.interview)}</td></tr>`;
+    html += `</tbody></table></div></div>`;
+  });
+
+  document.getElementById('scoreArea').innerHTML = html;
+}
+/* Legacy score data removed - now using full 15-month dataset */
+/* START_REMOVE
     total: [
       {month:'12月',apply:137,valid:52,interview:21,sales_start:10,hire:1,deal:6},
       {month:'1月',apply:159,valid:41,interview:24,sales_start:21,hire:1,deal:3},
@@ -840,8 +1029,7 @@ function renderScore(){
   });
   html += `</tbody></table></div></div>`;
 
-  document.getElementById('scoreArea').innerHTML = html;
-}
+END_REMOVE */
 
 // ===== TREND =====
 function renderTrend(){
